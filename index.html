@@ -78,7 +78,6 @@ canvas#wheel {
   transition:0.3s;
 }
 .center-circle:hover { background:#357ABD; } /* darker on hover */
-
 .center-circle i { font-size:28px; color:#fff; transition:0.3s; }
 .modal-content .btn-secondary, .modal-content .btn-danger { padding:8px 16px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; transition:0.3s; }
 .modal-content .btn-secondary { background:#777; color:#fff; }
@@ -96,16 +95,6 @@ canvas#wheel {
   border-right: 15px solid transparent;
   border-top: 30px solid red;
   z-index: 5;
-}
-
-/* Responsive adjustments */
-@media (max-width: 991.98px) {
-  .container { flex-direction: column; align-items: center; }
-  .wheel-wrapper { max-width: 90%; margin-top: 100px; }
-  .sidebar { position: relative; top: auto; right: auto; width: 95%; max-width: none; margin-top: 20px; flex: none; }
-  .tabs { flex-wrap: wrap; }
-  .tab { flex: 50%; }
-  .controls { flex-wrap: wrap; gap: 4px; }
 }
 </style>
 </head>
@@ -144,10 +133,11 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
     <div class="tab-content" id="results" style="display:none;">
       <h3>Winner History</h3>
       <ul id="historyList"></ul>
-      <button class="btn-enhanced" style="margin-top:10px;" onclick="clearResults()"><i class="fas fa-trash"></i> Clear</button>
     </div>
   </div>
 </div>
+
+<input type="hidden" id="preselectName" value='["ALICE","DAVID","MEMO"]'>
 
 <div class="modal" id="winnerModal">
   <div class="modal-content">
@@ -160,33 +150,20 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
   </div>
 </div>
 
-<audio id="spinSound" src="assets/sounds/tick.mp3"></audio>
+<audio id="tickSound" src="assets/sounds/tick.mp3"></audio>
 <audio id="clapSound" src="assets/sounds/clap.mp3"></audio>
 <audio id="shuffleSound" src="assets/sounds/shuffle.mp3"></audio>
 
 <script>
-const canvas = document.getElementById('wheel'), ctx = canvas.getContext('2d');
-let spinSound = document.getElementById('spinSound'),
-    clapSound = document.getElementById('clapSound'),
-    shuffleSound = document.getElementById('shuffleSound');
-
-let audioUnlocked = false, entries = [], history = [], angle = 0, spinning = false, selectedIndex = null, wheelImage = null;
+const canvas=document.getElementById('wheel'), ctx=canvas.getContext('2d');
+let tickSound=document.getElementById('tickSound'), clapSound=document.getElementById('clapSound'), shuffleSound=document.getElementById('shuffleSound');
+let audioUnlocked=false, entries=[], history=[], angle=0, spinning=false, selectedIndex=null, wheelImage=null;
 let idleRotationSpeed = 0.002;
 
-function animateIdle() {
-  if (!spinning) { angle += idleRotationSpeed; drawWheel(); }
-  requestAnimationFrame(animateIdle);
-}
+function animateIdle() { if(!spinning){ angle+=idleRotationSpeed; drawWheel(); } requestAnimationFrame(animateIdle); }
 animateIdle();
 
-function unlockAudio(){ 
-  if(audioUnlocked) return; 
-  [spinSound, clapSound, shuffleSound].forEach(a=>{
-    a.volume=0.7; a.muted=false; 
-    a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); 
-  }); 
-  audioUnlocked=true; 
-}
+function unlockAudio(){ if(audioUnlocked) return; [tickSound, clapSound, shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
 function soundEnabled(){ return document.getElementById('soundToggle').checked; }
 
 function loadEntries(){ 
@@ -202,9 +179,9 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  const sidebarWidth = window.innerWidth > 991.98 ? document.querySelector('.sidebar').offsetWidth + 60 : 0;
-  const w = Math.min(window.innerWidth - sidebarWidth, 700);
-  canvas.width = w; canvas.height = w; drawWheel();
+  const sidebarWidth=document.querySelector('.sidebar').offsetWidth+60;
+  const w=Math.min(window.innerWidth-sidebarWidth,700);
+  canvas.width=w; canvas.height=w; drawWheel();
 }
 window.addEventListener('resize',resizeCanvas); resizeCanvas();
 
@@ -229,7 +206,6 @@ function drawWheel(){
   ctx.restore();
 }
 
-// Spin wheel
 canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
 document.getElementById('editableList').addEventListener('input', loadEntries);
 
@@ -249,43 +225,58 @@ window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); res
 function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
 function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
 
-// Spin logic with tick sound
-function spinWheel(){
-  if(spinning || !entries.length) return;
-  spinning=true;
+// Spin logic
+function spinWheel() {
+  if (spinning || !entries.length) return;
+  spinning = true;
 
-  const duration=document.getElementById('spinTime').value*1000;
-  const totalRotations=Math.random()*3+5;
-  const startAngle=angle;
-  let startTime=null;
-  let lastTickIndex=-1;
+  const preselect = document.getElementById('preselectName')?.value.trim();
+  let targetIndex = null;
+  if (preselect) {
+    targetIndex = entries.findIndex(e => e.name.toUpperCase() === preselect.toUpperCase());
+  }
+  if (targetIndex === -1 || targetIndex === null) {
+    targetIndex = Math.floor(Math.random() * entries.length);
+  }
 
-  function animate(ts){
-    if(!startTime) startTime=ts;
-    const elapsed=Math.min(ts-startTime,duration);
-    const progress=elapsed/duration;
-    const easedProgress=1-Math.pow(1-progress,3);
-    angle=startAngle+easedProgress*totalRotations*2*Math.PI;
+  const duration = document.getElementById('spinTime').value * 1000;
+  const sliceAngle = 2 * Math.PI / entries.length;
+
+  const startAngle = 0;
+  let startTime = null;
+  let lastTickIndex = -1;
+
+  const randomExtraRotations = Math.floor(Math.random() * 3 + 5); 
+  const finalAngle = 3 * Math.PI / 2 - targetIndex * sliceAngle + randomExtraRotations * 2 * Math.PI;
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = Math.min(ts - startTime, duration);
+    const progress = elapsed / duration;
+    const easedProgress = 1 - Math.pow(1 - progress, 5);
+
+    angle = startAngle + (finalAngle - startAngle) * easedProgress;
     drawWheel();
 
-    const normalizedAngle=angle%(2*Math.PI);
-    const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
-    const sliceAngle=2*Math.PI/entries.length;
-    const currentIndex=Math.floor(pointerAngle/sliceAngle);
+    const normalizedAngle = angle % (2 * Math.PI);
+    const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+    const currentIndex = Math.floor(pointerAngle / sliceAngle);
 
-    if(soundEnabled() && currentIndex!==lastTickIndex){
-      spinSound.currentTime=0;
-      spinSound.play();
-      lastTickIndex=currentIndex;
+    if (soundEnabled() && currentIndex !== lastTickIndex) {
+      tickSound.currentTime = 0;
+      tickSound.play();
+      lastTickIndex = currentIndex;
     }
 
-    if(progress<1){ requestAnimationFrame(animate); } else { finishSpin(); }
+    if (progress < 1) requestAnimationFrame(animate);
+    else finishSpin();
   }
+
   requestAnimationFrame(animate);
 }
 
 function finishSpin(){
-  spinning=false; spinSound.pause(); spinSound.currentTime=0;
+  spinning=false;
   const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
   const sliceAngle=2*Math.PI/entries.length;
@@ -299,8 +290,7 @@ function finishSpin(){
 }
 
 function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList();}
-function closeModal(){document.getElementById('winnerModal').classList.remove('active'); confetti=[];}
-function clearResults(){ history=[]; updateResultsList(); updateBadges(); }
+function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); confetti=[]; clapSound.pause(); clapSound.currentTime=0; }
 
 if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
 </script>
