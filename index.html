@@ -97,6 +97,64 @@ canvas#wheel {
   border-top: 30px solid red;
   z-index: 5;
 }
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .wheel-wrapper {
+    max-width: 100%;
+    margin-top: 60px;
+  }
+
+  canvas#wheel {
+    width: 90vw !important;
+    height: 90vw !important;
+  }
+
+  .sidebar {
+    position: relative;
+    width: 100%;
+    max-height: none;
+    margin-top: 20px;
+    right: auto;
+    border-radius: 12px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .center-circle {
+    width: 80px;
+    height: 80px;
+  }
+
+  .winner-name {
+    font-size: 24px;
+  }
+
+  .editable-list {
+    height: 200px;
+    font-size: 13px;
+  }
+
+  .tab-content {
+    max-height: 250px;
+    padding: 8px;
+  }
+
+  .btn-enhanced {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
 </style>
 </head>
 <body>
