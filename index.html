@@ -261,11 +261,23 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  const sidebarWidth=document.querySelector('.sidebar').offsetWidth+60;
-  const w=Math.min(window.innerWidth-sidebarWidth,700);
-  canvas.width=w; canvas.height=w; drawWheel();
+  const sidebar = document.querySelector('.sidebar');
+  let w;
+
+  if(window.innerWidth <= 991.98){ // mobile
+    w = Math.min(window.innerWidth * 0.9, 400); // 90% of viewport width max 400px
+  } else { // desktop
+    const sidebarWidth = sidebar.offsetWidth + 60;
+    w = Math.min(window.innerWidth - sidebarWidth, 700); // same as before
+  }
+
+  canvas.width = w; 
+  canvas.height = w; 
+  drawWheel();
 }
-window.addEventListener('resize',resizeCanvas); resizeCanvas();
+window.addEventListener('resize', resizeCanvas); 
+resizeCanvas();
+
 
 function drawWheel(){
   if(!entries.length) return;
