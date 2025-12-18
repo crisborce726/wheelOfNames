@@ -7,6 +7,7 @@
 <link rel="icon" href="{{ asset('assets/images/logo-icon.png') }}" type="image/png" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+/* --- Styles unchanged from your last version --- */
 body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:#2a2a2a; color:#fff; overflow-x:hidden; }
 .container { display:flex; flex-wrap:wrap; justify-content:center; position:relative; }
 .wheel-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; min-width:300px; max-width:calc(100% - 320px); margin-top:80px; }
@@ -120,7 +121,7 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
 const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
 let tickSound=document.getElementById('tickSound'),clapSound=document.getElementById('clapSound'),shuffleSound=document.getElementById('shuffleSound');
 let audioUnlocked=false,entries=[],history=[],angle=0,spinning=false,selectedIndex=null,wheelImage=null;
-let idleRotationSpeed=0.002,rotationOffset=0,lockedCenterColor=null;
+let idleRotationSpeed=0.002,rotationOffset=0,lockedCenterColor=null,lastTickIndex=-1;
 
 function animateIdle(){ if(!spinning){ angle+=idleRotationSpeed; drawWheel(); } requestAnimationFrame(animateIdle); }
 animateIdle();
@@ -157,11 +158,8 @@ function getPointerSliceColor(){
   const currentIndex=Math.floor(pointerAngle/sliceAngle);
   const nextIndex=(currentIndex+1)%entries.length;
   const progress=(pointerAngle-(currentIndex*sliceAngle))/sliceAngle;
-  const hue=currentIndex*360/entries.length + (nextIndex-currentIndex)*360/entries.length*progress;
-  return `hsl(${hue},80%,50%)`;
+  return `hsl(${currentIndex*360/entries.length + (nextIndex-currentIndex)*360/entries.length*progress},80%,50%)`;
 }
-
-function getCurrentSliceColor(){ return lockedCenterColor||getPointerSliceColor(); }
 
 function drawWheel(){
   if(!entries.length) return;
@@ -181,7 +179,7 @@ function drawWheel(){
     ctx.save(); ctx.rotate(start+sliceAngle/2); ctx.textAlign="right"; ctx.fillStyle="#000"; ctx.font="bold 16px Arial"; ctx.fillText(e.name,radius-12,5); ctx.restore();
   });
 
-  ctx.beginPath(); ctx.arc(0,0,50,0,2*Math.PI); ctx.fillStyle=getCurrentSliceColor(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,50,0,2*Math.PI); ctx.fillStyle=lockedCenterColor||getPointerSliceColor(); ctx.fill();
   if(wheelImage){ ctx.save(); ctx.clip(); ctx.drawImage(wheelImage,-50,-50,100,100); ctx.restore(); document.getElementById('centerCircle').style.display='none'; } 
   else document.getElementById('centerCircle').style.display='flex';
   ctx.restore();
@@ -189,25 +187,19 @@ function drawWheel(){
   document.getElementById('wheel-pointer').style.borderTopColor=getPointerSliceColor();
 }
 
-canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
-document.getElementById('editableList').addEventListener('input', loadEntries);
-document.getElementById('centerCircle').addEventListener('click',()=>{
-  const input=document.createElement('input'); input.type='file'; input.accept='image/*';
-  input.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const img=new Image(); img.onload=()=>{ wheelImage=img; drawWheel(); }; img.src=URL.createObjectURL(file); };
-  input.click();
-});
-function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-
+// --- Spin logic with synced tick sound ---
 function spinWheel(){
   if(spinning||!entries.length) return;
   spinning=true;
+  lastTickIndex=-1;
   let targetIndex=null;
   const preselectInput=document.getElementById('preselectName'); let preselectNames=[];
   try{ if(preselectInput&&preselectInput.value) preselectNames=JSON.parse(preselectInput.value); }catch(e){}
   for(let name of preselectNames){ const idx=entries.findIndex(e=>e.name.toUpperCase()===name.toUpperCase()); if(idx!==-1){targetIndex=idx; break;} }
   if(targetIndex===null) targetIndex=Math.floor(Math.random()*entries.length);
+
   const duration=document.getElementById('spinTime').value*1000;
-  const sliceAngle=2*Math.PI/entries.length; const startAngle=0; let startTime=null; let lastTickIndex=-1;
+  const sliceAngle=2*Math.PI/entries.length; const startAngle=0; let startTime=null; 
   const randomExtraRotations=Math.floor(Math.random()*3+5);
   const finalAngle=3*Math.PI/2 - targetIndex*sliceAngle + randomExtraRotations*2*Math.PI - rotationOffset;
 
@@ -217,11 +209,14 @@ function spinWheel(){
     const progress=elapsed/duration;
     const easedProgress=1-Math.pow(1-progress,5);
     angle=startAngle+(finalAngle-startAngle)*easedProgress;
-    drawWheel();
+
+    // --- tick only when crossing slice ---
     const normalizedAngle=angle%(2*Math.PI);
     const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
     const currentIndex=Math.floor(pointerAngle/sliceAngle);
     if(soundEnabled() && currentIndex!==lastTickIndex){ tickSound.currentTime=0; tickSound.play(); lastTickIndex=currentIndex; }
+
+    drawWheel();
     if(progress<1) requestAnimationFrame(animate); else finishSpin();
   }
   requestAnimationFrame(animate);
@@ -229,8 +224,8 @@ function spinWheel(){
 
 function finishSpin(){
   spinning=false;
-  const normalizedAngle=angle%(2*Math.PI);
   const sliceAngle=2*Math.PI/entries.length;
+  const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
   selectedIndex=Math.floor(pointerAngle/sliceAngle);
   const winner=entries[selectedIndex].name;
@@ -245,14 +240,28 @@ function finishSpin(){
 function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList(); lockedCenterColor=null; }
 function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); confetti=[]; clapSound.pause(); clapSound.currentTime=0; }
 
+// --- Confetti ---
 const confettiCanvas=document.createElement('canvas'); confettiCanvas.style.position='fixed'; confettiCanvas.style.inset='0'; confettiCanvas.style.pointerEvents='none'; document.body.appendChild(confettiCanvas);
-const cctx=confettiCanvas.getContext('2d'); let confetti=[], confettiAnimating=false;
+const cctx=confettiCanvas.getContext('2d'); let confetti=[],confettiAnimating=false;
 function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
 window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); resizeConfetti();
-function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
-function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
+function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`}); } 
+  if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
+function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } 
+confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); 
+confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); 
+if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
 
 if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
+
+canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
+document.getElementById('editableList').addEventListener('input', loadEntries);
+document.getElementById('centerCircle').addEventListener('click',()=>{
+  const input=document.createElement('input'); input.type='file'; input.accept='image/*';
+  input.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const img=new Image(); img.onload=()=>{ wheelImage=img; drawWheel(); }; img.src=URL.createObjectURL(file); };
+  input.click();
+});
+function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
 </script>
 </body>
 </html>
