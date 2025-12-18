@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wheel of Names Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:#1a1a1a; color:#fff; overflow-x:hidden; }
+.container { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; position:relative; padding-top:100px; }
+.wheel-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; min-width:280px; max-width:calc(100% - 320px); margin-top:20px; }
+canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0,0,0,0.5); cursor:pointer; }
+.header { display:flex; justify-content:space-between; align-items:center; width:100%; position:fixed; top:0; left:0; right:0; background:#222; z-index:10; padding:10px 20px; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+.header h1 { font-size:24px; margin:0; font-weight:bold; }
+.controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.checkbox-label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+.fullscreen-btn { background: linear-gradient(135deg,#444,#666); border:none; padding:6px 12px; border-radius:8px; cursor:pointer; color:#fff; font-size:18px; transition:0.3s; }
+.fullscreen-btn:hover { background: linear-gradient(135deg,#555,#888); }
+.sidebar { position:fixed; top:80px; right:20px; width:280px; max-height:calc(100vh - 100px); overflow:hidden; display:flex; flex-direction:column; z-index:5; background:#111; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.7); }
+.tabs { display:flex; border-bottom:1px solid rgba(255,255,255,0.2); }
+.tab { flex:1; text-align:center; padding:12px; cursor:pointer; font-weight:bold; background:#111; position:relative; transition:0.3s; }
+.tab.active { background:#222; }
+.tab .badge { background:#555; border-radius:12px; padding:2px 6px; font-size:12px; margin-left:6px; }
+.tab-content { flex:1; overflow-y:auto; max-height:420px; padding:12px; display:flex; flex-direction:column; }
+.editable-list { width:100%; flex:1; font-size:14px; line-height:1.4; background:#222; color:#fff; border-radius:12px; padding:10px; overflow-y:auto; outline:none; }
+.editable-list div { padding:2px 4px; cursor:grab; user-select:none; }
+.editable-list div.dragging { opacity:0.5; }
+.btn-enhanced { background: linear-gradient(135deg,#4a90e2,#357ABD); border:none; border-radius:10px; padding:10px 16px; font-size:14px; color:#fff; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:6px; transition:0.3s; }
+.btn-enhanced:hover { background: linear-gradient(135deg,#357ABD,#1f5ca5); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; justify-content:center; align-items:center; z-index:999; }
+.modal.active { display:flex; }
+.modal-content { background:#fff; color:#000; padding:30px; border-radius:20px; text-align:center; width:90%; max-width:420px; box-shadow:0 10px 25px rgba(0,0,0,0.3); }
+.winner-name { font-size:28px; font-weight:bold; margin:20px 0; color:#222; }
+#historyList { list-style:none; padding:0; margin:0; max-height:200px; overflow-y:auto; }
+#historyList li { background:#333; margin:4px 0; padding:6px 12px; border-radius:12px; }
+.center-circle { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100px; height:100px; border-radius:50%; background:rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.3s; }
+.center-circle:hover { background:rgba(0,0,0,0.4); }
+.center-circle i { font-size:28px; color:#fff; transition:0.3s; }
+.modal-content .btn-secondary, .modal-content .btn-danger { padding:8px 16px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; transition:0.3s; }
+.modal-content .btn-secondary { background:#777; color:#fff; }
+.modal-content .btn-secondary:hover { background:#555; }
+.modal-content .btn-danger { background:#d9534f; color:#fff; }
+.modal-content .btn-danger:hover { background:#c9302c; }
+#wheel-pointer { position: absolute; left: 50%; top: -15px; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid red; z-index: 5; }
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Wheel of Names</h1>
+  <div class="controls">
+    <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fas fa-expand"></i></button>
+    <label class="checkbox-label"><input type="checkbox" id="soundToggle" checked> Sound</label>
+    <label>Spin Time <input type="range" id="spinTime" min="6" max="14" value="10"></label>
+    <input type="hidden" id="preselectWinner" value="Christian Zamoranos">
+  </div>
+</div>
+
+<div class="container">
+  <div class="wheel-wrapper">
+    <canvas id="wheel"></canvas>
+    <div id="wheel-pointer"></div>
+    <div class="center-circle" id="centerCircle" title="Click to add logo"><i class="fas fa-image"></i></div>
+    <input type="file" id="centerLogoInput" accept="image/*" style="display:none;">
+  </div>
+
+  <div class="sidebar">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('entries')">Entries <span class="badge" id="entriesCount">0</span></div>
+      <div class="tab" onclick="showTab('results')">Results <span class="badge" id="resultsCount">0</span></div>
+    </div>
+    <div class="tab-content" id="entries">
+      <div class="editable-list" id="editableList" contenteditable="true" spellcheck="false"></div>
+      <div class="controls" style="display:flex; justify-content:space-between; margin-top:10px;">
+          <button class="btn-enhanced" onclick="shuffleEntries()"><i class="fas fa-random"></i> Shuffle</button>
+          <button class="btn-enhanced" onclick="sortEntries()"><i class="fas fa-sort-alpha-up"></i> Sort</button>
+      </div>
+    </div>
+    <div class="tab-content" id="results" style="display:none;">
+      <h3>Winner History</h3>
+      <ul id="historyList"></ul>
+      <button class="btn-enhanced" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="winnerModal">
+  <div class="modal-content">
+    <h2>🎉 Winner 🎉</h2>
+    <div class="winner-name" id="winnerName"></div>
+    <div class="controls" style="justify-content:center; gap:10px;">
+      <button class="btn-danger" onclick="confirmWinner()">Confirm & Remove</button>
+      <button class="btn-secondary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Audio -->
+<audio id="spinSound" src="assets/sounds/spin.mp3" loop></audio>
+<audio id="tickSound" src="assets/sounds/tick.mp3"></audio>
+<audio id="finalClick" src="assets/sounds/click.mp3"></audio>
+<audio id="clapSound" src="assets/sounds/clap.mp3"></audio>
+<audio id="shuffleSound" src="assets/sounds/shuffle.mp3"></audio>
+
+<script>
+const canvas=document.getElementById('wheel'), ctx=canvas.getContext('2d');
+const editableList=document.getElementById('editableList');
+let entries=[], history=[], angle=0, spinning=false, selectedIndex=null, wheelImage=null;
+let spinSound=document.getElementById('spinSound'), tickSound=document.getElementById('tickSound'), finalClick=document.getElementById('finalClick'), clapSound=document.getElementById('clapSound'), shuffleSound=document.getElementById('shuffleSound');
+
+// Default names
+const defaultNames = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Hannah"];
+
+function loadDefaultEntries(){
+    editableList.innerHTML='';
+    defaultNames.forEach(n=>{
+        const div=document.createElement('div'); div.textContent=n; editableList.appendChild(div);
+    });
+    loadEntries();
+}
+
+function loadEntries(){
+    const rawText = editableList.innerText || editableList.textContent;
+    const nameArray = rawText.split(/[\n,;]+/).map(n=>n.trim()).filter(n=>n.length>0);
+    const uniqueNames = [...new Set(nameArray)];
+    entries = uniqueNames.map(name=>({name}));
+    editableList.innerHTML='';
+    entries.forEach(n=>{ const div=document.createElement('div'); div.textContent=n.name; editableList.appendChild(div); });
+    enableDragAndDrop();
+    updateBadges();
+    drawWheel();
+}
+
+function enableDragAndDrop(){
+    let dragSrc=null;
+    Array.from(editableList.children).forEach(item=>{
+        item.draggable=true;
+        item.addEventListener('dragstart', e=>{ dragSrc=item; item.classList.add('dragging'); });
+        item.addEventListener('dragend', e=>{ item.classList.remove('dragging'); });
+        item.addEventListener('dragover', e=>e.preventDefault());
+        item.addEventListener('drop', e=>{
+            e.preventDefault();
+            if(dragSrc && dragSrc!==item){
+                editableList.insertBefore(dragSrc, item.nextSibling);
+                entries=Array.from(editableList.children).map(d=>({name:d.textContent}));
+                drawWheel();
+            }
+        });
+    });
+}
+
+editableList.addEventListener('paste', e=>{
+    e.preventDefault();
+    const text=(e.clipboardData||window.clipboardData).getData('text');
+    text.split(/[\n,;]+/).map(n=>n.trim()).filter(n=>n).forEach(n=>{
+        const div=document.createElement('div'); div.textContent=n; editableList.appendChild(div);
+    });
+    loadEntries();
+});
+
+editableList.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); document.execCommand('insertHTML', false, '<div><br></div>'); }
+});
+
+function showTab(id){ 
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); 
+    document.getElementById(id).style.display='flex'; 
+    document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active'); 
+}
+
+function updateBadges(){ 
+    document.getElementById('entriesCount').textContent=entries.length; 
+    document.getElementById('resultsCount').textContent=history.length; 
+}
+function updateResultsList(){ 
+    document.getElementById('historyList').innerHTML=history.map(n=>`<li>${n}</li>`).join(''); 
+}
+function clearHistory(){ 
+    history=[]; updateBadges(); updateResultsList(); 
+}
+
+// Center logo
+const centerCircle=document.getElementById('centerCircle');
+const centerLogoInput=document.getElementById('centerLogoInput');
+centerCircle.addEventListener('click', ()=>centerLogoInput.click());
+centerLogoInput.addEventListener('change', e=>{
+    const file=e.target.files[0]; 
+    if(file){ const img=new Image(); img.onload=()=>{ wheelImage=img; drawWheel(); }; img.src=URL.createObjectURL(file); }
+});
+
+// Canvas resize
+function resizeCanvas(){ 
+    const sidebarWidth=document.querySelector('.sidebar').offsetWidth+60; 
+    const w=Math.min(window.innerWidth-sidebarWidth,700); 
+    canvas.width=w; canvas.height=w; 
+    drawWheel(); 
+}
+window.addEventListener('resize', resizeCanvas); 
+resizeCanvas();
+
+// Draw wheel
+function drawWheel(){ 
+    if(!entries.length) return;
+    const radius=canvas.width/2;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.translate(radius,radius); ctx.rotate(angle);
+    const sliceAngle=2*Math.PI/entries.length;
+    entries.forEach((e,i)=>{
+        const start=i*sliceAngle;
+        const gradient=ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+        gradient.addColorStop(0,`hsl(${i*360/entries.length},80%,75%)`);
+        gradient.addColorStop(1,`hsl(${i*360/entries.length},70%,50%)`);
+        ctx.fillStyle=gradient;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,radius,start,start+sliceAngle); ctx.fill();
+        ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(radius*Math.cos(start),radius*Math.sin(start)); ctx.stroke();
+        ctx.save(); ctx.rotate(start+sliceAngle/2); ctx.textAlign="right"; ctx.fillStyle="#000"; ctx.font="bold 16px Arial"; ctx.fillText(e.name,radius-12,5); ctx.restore();
+    });
+    ctx.beginPath(); ctx.arc(0,0,50,0,2*Math.PI); ctx.fillStyle="#eee"; ctx.fill();
+    if(wheelImage){ ctx.save(); ctx.clip(); ctx.drawImage(wheelImage,-50,-50,100,100); ctx.restore(); centerCircle.style.display='none'; } else centerCircle.style.display='flex';
+    ctx.restore();
+}
+
+// Spin wheel
+canvas.addEventListener('click', ()=>spinWheel());
+function spinWheel(){ 
+    if(spinning || !entries.length) return; 
+    spinning=true; 
+
+    if(document.getElementById('soundToggle').checked) spinSound.play();
+
+    let duration=document.getElementById('spinTime').value*1000; 
+    const startAngle=angle; 
+    let startTime=null; 
+    let lastTick=null;
+
+    // Preselect winner
+    const preselectName = document.getElementById('preselectWinner').value;
+    let preselectIndex = null;
+    if(preselectName){
+        preselectIndex = entries.findIndex(e => e.name.toLowerCase() === preselectName.toLowerCase());
+        if(preselectIndex === -1) preselectIndex = null;
+    }
+
+    function animate(ts){
+        if(!startTime) startTime=ts; 
+        let elapsed=ts-startTime; 
+        let progress = Math.min(elapsed/duration,1);
+
+        const sliceAngle=2*Math.PI/entries.length;
+
+        // Ease out cubic for smooth deceleration
+        let easedProgress = 1 - Math.pow(1 - progress, 3);
+
+        // Target final angle
+        let targetAngle;
+        if(preselectIndex !== null){
+            targetAngle = 3*Math.PI/2 - sliceAngle*preselectIndex;
+        } else {
+            targetAngle = startAngle + 2*Math.PI*5; // default 5 rotations
+        }
+
+        angle = startAngle + (targetAngle - startAngle) * easedProgress + (preselectIndex===null ? 2*Math.PI*5*easedProgress : 0);
+
+        drawWheel();
+
+        // Tick sound
+        let currentTick=Math.floor((3*Math.PI/2-angle+2*Math.PI)%(2*Math.PI)/sliceAngle);
+        if(currentTick!==lastTick){
+            if(document.getElementById('soundToggle').checked){ tickSound.currentTime=0; tickSound.play(); } 
+            lastTick=currentTick;
+        }
+
+        if(progress<1) requestAnimationFrame(animate); 
+        else finishSpin();
+    }
+
+    requestAnimationFrame(animate);
+}
+
+function easeOutCubic(t){ return 1 - Math.pow(1-t,3); }
+
+function finishSpin(){
+    spinning=false;
+    spinSound.pause(); spinSound.currentTime=0;
+
+    const sliceAngle=2*Math.PI/entries.length;
+    const normalizedAngle=angle%(2*Math.PI);
+    selectedIndex=Math.floor((3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI)/sliceAngle);
+    const winner=entries[selectedIndex].name;
+
+    history.push(winner); updateBadges(); updateResultsList();
+    document.getElementById('winnerName').textContent=winner;
+    document.getElementById('winnerModal').classList.add('active');
+    launchConfetti();
+    if(document.getElementById('soundToggle').checked) clapSound.play();
+}
+
+function confirmWinner(){
+    entries.splice(selectedIndex,1); selectedIndex=null;
+    editableList.innerHTML=''; entries.forEach(e=>{ const div=document.createElement('div'); div.textContent=e.name; editableList.appendChild(div); });
+    enableDragAndDrop(); drawWheel(); updateBadges(); updateResultsList(); closeModal();
+}
+function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); }
+
+// Fullscreen
+function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+
+// Confetti
+const confettiCanvas=document.createElement('canvas'); confettiCanvas.style.position='fixed'; confettiCanvas.style.inset='0'; confettiCanvas.style.pointerEvents='none'; document.body.appendChild(confettiCanvas);
+const cctx=confettiCanvas.getContext('2d'); let confetti=[], confettiAnimating=false;
+function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
+window.addEventListener('resize', resizeConfetti); resizeConfetti();
+function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`,shape:Math.random()<0.5?'circle':'rect'}); } if(!confettiAnimating) confettiLoop(); }
+function confettiLoop(){ confettiAnimating=true; cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); confetti.forEach((f,i)=>{ cctx.fillStyle=f.c; if(f.shape==='circle') cctx.beginPath(), cctx.arc(f.x,f.y,f.r,0,2*Math.PI), cctx.fill(); else cctx.fillRect(f.x,f.y,f.r,f.r); f.y+=f.d; if(f.y>confettiCanvas.height){ confetti.splice(i,1); } }); if(confetti.length>0) requestAnimationFrame(confettiLoop); else confettiAnimating=false; }
+
+// Shuffle & sort
+function shuffleEntries(){ 
+    for(let i=entries.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [entries[i],entries[j]]=[entries[j],entries[i]]; } 
+    editableList.innerHTML=''; entries.forEach(e=>{ const div=document.createElement('div'); div.textContent=e.name; editableList.appendChild(div); }); 
+    enableDragAndDrop(); drawWheel(); 
+    if(document.getElementById('soundToggle').checked) shuffleSound.play(); 
+}
+function sortEntries(){ 
+    entries.sort((a,b)=>a.name.localeCompare(b.name)); 
+    editableList.innerHTML=''; entries.forEach(e=>{ const div=document.createElement('div'); div.textContent=e.name; editableList.appendChild(div); }); 
+    enableDragAndDrop(); drawWheel(); 
+}
+
+loadDefaultEntries();
+</script>
+</body>
+</html>

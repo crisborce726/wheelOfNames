@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wheel of Names Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+:root {
+  --bg-main:#2a2a2a;
+  --bg-panel:#1f1f1f;
+  --bg-soft:#2b2b2b;
+}
+
+* { box-sizing:border-box; }
+
+body {
+  margin:0;
+  font-family:'Segoe UI',Arial,sans-serif;
+  background:var(--bg-main);
+  color:#fff;
+}
+
+.header {
+  position:fixed;
+  top:0; left:0; right:0;
+  height:60px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0 20px;
+  background:var(--bg-main);
+  z-index:10;
+}
+
+.container {
+  display:flex;
+  justify-content:center;
+  margin-top:80px;
+}
+
+.wheel-wrapper {
+  flex:1;
+  display:flex;
+  justify-content:center;
+  position:relative;
+}
+
+canvas {
+  background:#fff;
+  border-radius:50%;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  cursor:pointer;
+}
+
+#wheel-pointer {
+  position:absolute;
+  top:-15px;
+  left:50%;
+  transform:translateX(-50%);
+  border-left:15px solid transparent;
+  border-right:15px solid transparent;
+  border-top:30px solid red;
+}
+
+.sidebar {
+  width:290px;
+  margin-left:20px;
+  background:var(--bg-panel);
+  border-radius:16px;
+  padding:12px;
+}
+
+.editable-list {
+  height:300px;
+  background:var(--bg-soft);
+  border-radius:12px;
+  padding:10px;
+  overflow-y:auto;
+}
+
+.btn {
+  background:#4a90e2;
+  border:none;
+  border-radius:10px;
+  padding:10px 16px;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.modal {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.7);
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+
+.modal.active { display:flex; }
+
+.modal-content {
+  background:#fff;
+  color:#000;
+  padding:30px;
+  border-radius:20px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h2>Wheel of Names</h2>
+  <label><input type="checkbox" id="soundToggle" checked> Sound</label>
+  <label>Spin <input type="range" id="spinTime" min="6" max="14" value="10"></label>
+</div>
+
+<div class="container">
+  <div class="wheel-wrapper">
+    <canvas id="wheel"></canvas>
+    <div id="wheel-pointer"></div>
+  </div>
+
+  <div class="sidebar">
+    <div id="editableList" class="editable-list" contenteditable>
+ALICE
+BOB
+CHARLIE
+DAVID
+EVE
+    </div>
+    <button class="btn" onclick="spinWheel()">SPIN</button>
+  </div>
+</div>
+
+<div class="modal" id="winnerModal">
+  <div class="modal-content">
+    <h2>🎉 Winner 🎉</h2>
+    <div id="winnerName" style="font-size:28px;font-weight:bold"></div>
+    <button class="btn" onclick="confirmWinner()">Confirm</button>
+  </div>
+</div>
+
+<!-- AUDIO -->
+<audio id="tickSound" src="assets/sounds/tick.mp3"></audio>
+<audio id="clapSound" src="assets/sounds/clap.mp3"></audio>
+
+<script>
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const tickSound = document.getElementById("tickSound");
+const clapSound = document.getElementById("clapSound");
+
+let entries = [];
+let angle = 0;
+let spinning = false;
+let selectedIndex = null;
+let lastTickIndex = null;
+
+const soundOn = () => document.getElementById("soundToggle").checked;
+
+function resizeCanvas() {
+  const size = Math.min(window.innerWidth - 360, 600);
+  canvas.width = size;
+  canvas.height = size;
+  drawWheel();
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+function loadEntries() {
+  entries = editableList.innerText
+    .split("\n")
+    .map(v => v.trim())
+    .filter(Boolean);
+  drawWheel();
+}
+editableList.addEventListener("input", loadEntries);
+loadEntries();
+
+function drawWheel() {
+  if (!entries.length) return;
+  const r = canvas.width / 2;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(r,r);
+  ctx.rotate(angle);
+
+  const slice = 2 * Math.PI / entries.length;
+  entries.forEach((name,i)=>{
+    ctx.fillStyle = `hsl(${i*360/entries.length},75%,65%)`;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0,r,i*slice,(i+1)*slice);
+    ctx.fill();
+
+    ctx.save();
+    ctx.rotate(i*slice + slice/2);
+    ctx.textAlign="right";
+    ctx.fillStyle="#000";
+    ctx.font="bold 16px Arial";
+    ctx.fillText(name,r-12,5);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function playTickSync() {
+  if (!soundOn() || !entries.length) return;
+
+  const slice = (Math.PI * 2) / entries.length;
+  const normalized = (3*Math.PI/2 - angle + Math.PI*2) % (Math.PI*2);
+  const index = Math.floor(normalized / slice);
+
+  if (index !== lastTickIndex) {
+    lastTickIndex = index;
+    tickSound.currentTime = 0;
+    tickSound.play().catch(()=>{});
+  }
+}
+
+function spinWheel() {
+  if (spinning || !entries.length) return;
+  spinning = true;
+  lastTickIndex = null;
+
+  const duration = spinTime.value * 1000;
+  const rotations = Math.random()*3 + 5;
+  const startAngle = angle;
+  let startTime = null;
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const p = Math.min((ts - startTime)/duration,1);
+    const ease = 1 - Math.pow(1-p,3);
+
+    angle = startAngle + ease * rotations * Math.PI*2;
+    drawWheel();
+    playTickSync();
+
+    if (p < 1) requestAnimationFrame(animate);
+    else finishSpin();
+  }
+  requestAnimationFrame(animate);
+}
+
+function finishSpin() {
+  spinning = false;
+  const slice = 2*Math.PI/entries.length;
+  const normalized = (3*Math.PI/2 - angle + Math.PI*2)%(Math.PI*2);
+  selectedIndex = Math.floor(normalized/slice);
+
+  winnerName.textContent = entries[selectedIndex];
+  winnerModal.classList.add("active");
+  if (soundOn()) clapSound.play();
+}
+
+function confirmWinner() {
+  entries.splice(selectedIndex,1);
+  editableList.innerText = entries.join("\n");
+  winnerModal.classList.remove("active");
+  loadEntries();
+}
+</script>
+</body>
+</html>
