@@ -7,7 +7,6 @@
 <link rel="icon" href="{{ asset('assets/images/logo-icon.png') }}" type="image/png" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* --- Your existing styles remain unchanged --- */
 body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:#2a2a2a; color:#fff; overflow-x:hidden; }
 .container { display:flex; flex-wrap:wrap; justify-content:center; position:relative; }
 .wheel-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; min-width:300px; max-width:calc(100% - 320px); margin-top:80px; }
@@ -42,8 +41,6 @@ canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0
 .modal-content .btn-danger { background:#d9534f; color:#fff; }
 .modal-content .btn-danger:hover { background:#c9302c; }
 #wheel-pointer { position: absolute; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid red; z-index: 5; }
-
-/* Fully responsive for mobile */
 @media (max-width: 991.98px) {
   body { font-size: 14px; }
   .header { flex-direction: column; align-items: center; text-align: center; gap: 8px; }
@@ -62,7 +59,9 @@ canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0
 </style>
 </head>
 <body>
+
 <input type="hidden" id="preselectName" value='["Names","Name1","Name2","Name3"]'>
+
 <div class="header">
   <h1>Wheel of Names</h1>
   <div class="controls">
@@ -118,26 +117,20 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
 <audio id="shuffleSound" src="assets/sounds/shuffle.mp3"></audio>
 
 <script>
-// Core Variables
-const canvas = document.getElementById('wheel'), ctx = canvas.getContext('2d');
-let tickSound = document.getElementById('tickSound'), clapSound = document.getElementById('clapSound'), shuffleSound = document.getElementById('shuffleSound');
-let audioUnlocked = false, entries = [], history = [], angle = 0, spinning = false, selectedIndex = null, wheelImage = null;
-let idleRotationSpeed = 0.002;
-let rotationOffset = 0;
+const canvas=document.getElementById('wheel'),ctx=canvas.getContext('2d');
+let tickSound=document.getElementById('tickSound'),clapSound=document.getElementById('clapSound'),shuffleSound=document.getElementById('shuffleSound');
+let audioUnlocked=false,entries=[],history=[],angle=0,spinning=false,selectedIndex=null,wheelImage=null;
+let idleRotationSpeed=0.002,rotationOffset=0,lockedCenterColor=null;
 
-// Animate idle wheel
 function animateIdle(){ if(!spinning){ angle+=idleRotationSpeed; drawWheel(); } requestAnimationFrame(animateIdle); }
 animateIdle();
-
-// Audio functions
-function unlockAudio(){ if(audioUnlocked) return; [tickSound, clapSound, shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
+function unlockAudio(){ if(audioUnlocked)return; [tickSound,clapSound,shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
 function soundEnabled(){ return document.getElementById('soundToggle').checked; }
 
-// Load and update entries
 function loadEntries(){ 
   const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); 
   entries=list.map(n=>({name:n})); 
-  rotationOffset = Math.PI / entries.length;
+  rotationOffset=Math.PI/entries.length; 
   updateBadges(); drawWheel(); 
 }
 function updateEditableList(){ document.getElementById('editableList').innerHTML=entries.map(e=>e.name).join('<br>'); }
@@ -147,25 +140,36 @@ function shuffleEntries(){ loadEntries(); entries.sort(()=>Math.random()-0.5); u
 function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(b.name)); updateEditableList(); drawWheel(); }
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
-// Resize canvas & pointer
 function resizeCanvas(){ 
-  let w = window.innerWidth <= 991.98 ? Math.min(window.innerWidth*0.9, 400) : Math.min(window.innerWidth - (document.querySelector('.sidebar').offsetWidth+60), 700);
-  canvas.width = w; canvas.height = w; drawWheel();
-  const pointer = document.getElementById('wheel-pointer');
-  pointer.style.top = `${canvas.offsetTop - pointer.offsetHeight + 5}px`;
-  pointer.style.left = `${canvas.offsetLeft + w/2 - pointer.offsetWidth/2}px`;
+  let w=window.innerWidth<=991.98?Math.min(window.innerWidth*0.9,400):Math.min(window.innerWidth-(document.querySelector('.sidebar').offsetWidth+60),700);
+  canvas.width=w; canvas.height=w; drawWheel();
+  const pointer=document.getElementById('wheel-pointer');
+  pointer.style.top=`${canvas.offsetTop - pointer.offsetHeight + 5}px`;
+  pointer.style.left=`${canvas.offsetLeft + w/2 - pointer.offsetWidth/2}px`;
 }
 window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-// Draw wheel
+function getPointerSliceColor(){
+  if(!entries.length) return 'red';
+  const sliceAngle=2*Math.PI/entries.length;
+  const normalizedAngle=angle%(2*Math.PI);
+  const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
+  const currentIndex=Math.floor(pointerAngle/sliceAngle);
+  const nextIndex=(currentIndex+1)%entries.length;
+  const progress=(pointerAngle-(currentIndex*sliceAngle))/sliceAngle;
+  const hue=currentIndex*360/entries.length + (nextIndex-currentIndex)*360/entries.length*progress;
+  return `hsl(${hue},80%,50%)`;
+}
+
+function getCurrentSliceColor(){ return lockedCenterColor||getPointerSliceColor(); }
+
 function drawWheel(){
   if(!entries.length) return;
-  const radius = canvas.width/2;
+  const radius=canvas.width/2;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.save(); 
-  ctx.translate(radius,radius); 
-  ctx.rotate(angle - rotationOffset);
-  const sliceAngle = 2*Math.PI/entries.length;
+  ctx.save(); ctx.translate(radius,radius); ctx.rotate(angle-rotationOffset);
+  const sliceAngle=2*Math.PI/entries.length;
+
   entries.forEach((e,i)=>{
     const start=i*sliceAngle;
     const gradient=ctx.createLinearGradient(0,0,canvas.width,canvas.height);
@@ -176,13 +180,15 @@ function drawWheel(){
     ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(radius*Math.cos(start),radius*Math.sin(start)); ctx.stroke();
     ctx.save(); ctx.rotate(start+sliceAngle/2); ctx.textAlign="right"; ctx.fillStyle="#000"; ctx.font="bold 16px Arial"; ctx.fillText(e.name,radius-12,5); ctx.restore();
   });
-  ctx.beginPath(); ctx.arc(0,0,50,0,2*Math.PI); ctx.fillStyle="#eee"; ctx.fill();
+
+  ctx.beginPath(); ctx.arc(0,0,50,0,2*Math.PI); ctx.fillStyle=getCurrentSliceColor(); ctx.fill();
   if(wheelImage){ ctx.save(); ctx.clip(); ctx.drawImage(wheelImage,-50,-50,100,100); ctx.restore(); document.getElementById('centerCircle').style.display='none'; } 
   else document.getElementById('centerCircle').style.display='flex';
   ctx.restore();
+
+  document.getElementById('wheel-pointer').style.borderTopColor=getPointerSliceColor();
 }
 
-// Click events
 canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
 document.getElementById('editableList').addEventListener('input', loadEntries);
 document.getElementById('centerCircle').addEventListener('click',()=>{
@@ -192,39 +198,31 @@ document.getElementById('centerCircle').addEventListener('click',()=>{
 });
 function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
 
-// Spin Logic
-function spinWheel() {
-  if (spinning || !entries.length) return;
-  spinning = true;
-  let targetIndex = null;
-  const preselectInput = document.getElementById('preselectName');
-  let preselectNames = [];
-  try { if(preselectInput && preselectInput.value) preselectNames = JSON.parse(preselectInput.value); } catch(e){}
-  for(let name of preselectNames){
-    const idx = entries.findIndex(e => e.name.toUpperCase() === name.toUpperCase());
-    if(idx !== -1){ targetIndex=idx; break; }
-  }
-  if(targetIndex === null) targetIndex = Math.floor(Math.random() * entries.length);
-  const duration = document.getElementById('spinTime').value * 1000;
-  const sliceAngle = 2 * Math.PI / entries.length;
-  const startAngle = 0;
-  let startTime = null;
-  let lastTickIndex = -1;
-  const randomExtraRotations = Math.floor(Math.random() * 3 + 5);
-  const finalAngle = 3 * Math.PI / 2 - targetIndex * sliceAngle + randomExtraRotations * 2 * Math.PI - rotationOffset;
+function spinWheel(){
+  if(spinning||!entries.length) return;
+  spinning=true;
+  let targetIndex=null;
+  const preselectInput=document.getElementById('preselectName'); let preselectNames=[];
+  try{ if(preselectInput&&preselectInput.value) preselectNames=JSON.parse(preselectInput.value); }catch(e){}
+  for(let name of preselectNames){ const idx=entries.findIndex(e=>e.name.toUpperCase()===name.toUpperCase()); if(idx!==-1){targetIndex=idx; break;} }
+  if(targetIndex===null) targetIndex=Math.floor(Math.random()*entries.length);
+  const duration=document.getElementById('spinTime').value*1000;
+  const sliceAngle=2*Math.PI/entries.length; const startAngle=0; let startTime=null; let lastTickIndex=-1;
+  const randomExtraRotations=Math.floor(Math.random()*3+5);
+  const finalAngle=3*Math.PI/2 - targetIndex*sliceAngle + randomExtraRotations*2*Math.PI - rotationOffset;
 
-  function animate(ts) {
-    if (!startTime) startTime = ts;
-    const elapsed = Math.min(ts - startTime, duration);
-    const progress = elapsed / duration;
-    const easedProgress = 1 - Math.pow(1 - progress, 5);
-    angle = startAngle + (finalAngle - startAngle) * easedProgress;
+  function animate(ts){
+    if(!startTime) startTime=ts;
+    const elapsed=Math.min(ts-startTime,duration);
+    const progress=elapsed/duration;
+    const easedProgress=1-Math.pow(1-progress,5);
+    angle=startAngle+(finalAngle-startAngle)*easedProgress;
     drawWheel();
-    const normalizedAngle = angle % (2 * Math.PI);
-    const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
-    const currentIndex = Math.floor(pointerAngle / sliceAngle);
-    if (soundEnabled() && currentIndex !== lastTickIndex) { tickSound.currentTime = 0; tickSound.play(); lastTickIndex = currentIndex; }
-    if (progress < 1) requestAnimationFrame(animate); else finishSpin();
+    const normalizedAngle=angle%(2*Math.PI);
+    const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
+    const currentIndex=Math.floor(pointerAngle/sliceAngle);
+    if(soundEnabled() && currentIndex!==lastTickIndex){ tickSound.currentTime=0; tickSound.play(); lastTickIndex=currentIndex; }
+    if(progress<1) requestAnimationFrame(animate); else finishSpin();
   }
   requestAnimationFrame(animate);
 }
@@ -239,14 +237,14 @@ function finishSpin(){
   history.push(winner); updateBadges(); updateResultsList();
   document.getElementById('winnerName').textContent=winner;
   document.getElementById('winnerModal').classList.add('active');
+  lockedCenterColor=getPointerSliceColor();
   if(soundEnabled()){ clapSound.currentTime=0; clapSound.play(); }
   launchConfetti();
 }
 
-function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList();}
+function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList(); lockedCenterColor=null; }
 function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); confetti=[]; clapSound.pause(); clapSound.currentTime=0; }
 
-// Confetti
 const confettiCanvas=document.createElement('canvas'); confettiCanvas.style.position='fixed'; confettiCanvas.style.inset='0'; confettiCanvas.style.pointerEvents='none'; document.body.appendChild(confettiCanvas);
 const cctx=confettiCanvas.getContext('2d'); let confetti=[], confettiAnimating=false;
 function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
@@ -254,7 +252,6 @@ window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); res
 function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
 function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
 
-// Initialize
 if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
 </script>
 </body>
