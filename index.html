@@ -57,6 +57,17 @@ canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0
   .btn-enhanced, .modal-content .btn-secondary, .modal-content .btn-danger { font-size: 13px; padding: 8px 12px; }
   #wheel-pointer { border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 24px solid red; }
 }
+
+/* ===== LIGHT MODE (ADDED ONLY) ===== */
+body.light-mode { background:#f4f6f8; color:#111; }
+body.light-mode .header { background:#ffffff; box-shadow:0 4px 10px rgba(0,0,0,0.15); }
+body.light-mode .sidebar { background:#ffffff; }
+body.light-mode .tab { background:#f0f0f0; color:#111; }
+body.light-mode .tab.active { background:#e0e0e0; }
+body.light-mode .editable-list { background:#ffffff; color:#111; }
+body.light-mode #historyList li { background:#e6e6e6; color:#111; }
+body.light-mode .fullscreen-btn { background:#ddd; color:#111; }
+body.light-mode .fullscreen-btn:hover { background:#ccc; }
 </style>
 </head>
 <body>
@@ -65,12 +76,28 @@ canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0
 
 <div class="header">
   <h1>Wheel of Names</h1>
+
   <div class="controls">
-    <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen"><i class="fas fa-expand"></i></button>
-    <label class="checkbox-label"><input type="checkbox" id="soundToggle" checked> Sound</label>
-    <label>Spin Time <input type="range" id="spinTime" min="6" max="14" value="10"></label>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
+      <i class="fas fa-expand"></i>
+    </button>
+
+    <!-- Dark / Light Mode Toggle -->
+    <button class="fullscreen-btn" onclick="toggleTheme()" title="Dark / Light Mode">
+      <i class="fas fa-adjust"></i>
+    </button>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="soundToggle" checked> Sound
+    </label>
+
+    <label>
+      Spin Time
+      <input type="range" id="spinTime" min="6" max="14" value="10">
+    </label>
   </div>
 </div>
+
 
 <div class="container">
   <div class="wheel-wrapper">
@@ -104,7 +131,7 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
 
 <div class="modal" id="winnerModal">
   <div class="modal-content">
-    <h2>🎉 Winner 🎉</h2>
+    <h2>🎉 We have a Winner 🎉</h2>
     <div class="winner-name" id="winnerName"></div>
     <div class="controls" style="justify-content:center; gap:10px;">
       <button class="btn-danger" onclick="confirmWinner()">Confirm & Remove</button>
@@ -262,6 +289,21 @@ document.getElementById('centerCircle').addEventListener('click',()=>{
   input.click();
 });
 function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+</script>
+<script>
+/* ===== THEME LOGIC (ADDED ONLY) ===== */
+function toggleTheme(){
+  document.body.classList.toggle('light-mode');
+  localStorage.setItem(
+    'wheelTheme',
+    document.body.classList.contains('light-mode') ? 'light' : 'dark'
+  );
+}
+(function(){
+  if(localStorage.getItem('wheelTheme') === 'light'){
+    document.body.classList.add('light-mode');
+  }
+})();
 </script>
 </body>
 </html>
