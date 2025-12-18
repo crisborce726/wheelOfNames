@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+/* All your existing styles remain unchanged */
 body {
   margin:0; font-family:'Segoe UI',Arial,sans-serif; background:#2a2a2a; color:#fff;
   overflow-x:hidden;
@@ -66,11 +67,19 @@ canvas#wheel {
 #historyList { list-style:none; padding:0; margin:0; }
 #historyList li { background:#333; margin:4px 0; padding:6px 12px; border-radius:12px; }
 .center-circle {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100px; height:100px;
-  border-radius:50%; background:rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center;
-  cursor:pointer; transition:0.3s;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:100px;
+  height:100px;
+  border-radius:50%;
+  background:#4a90e2; /* plain solid color */
+  cursor:pointer;
+  transition:0.3s;
 }
-.center-circle:hover { background:rgba(0,0,0,0.4); }
+.center-circle:hover { background:#357ABD; } /* darker on hover */
+
 .center-circle i { font-size:28px; color:#fff; transition:0.3s; }
 .modal-content .btn-secondary, .modal-content .btn-danger { padding:8px 16px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; transition:0.3s; }
 .modal-content .btn-secondary { background:#777; color:#fff; }
@@ -116,7 +125,7 @@ canvas#wheel {
   <div class="wheel-wrapper">
     <canvas id="wheel"></canvas>
     <div id="wheel-pointer"></div>
-    <div class="center-circle" id="centerCircle" title="Add logo/image"><i class="fas fa-image"></i></div>
+    <div class="center-circle" id="centerCircle" title="Add logo/image"></div>
   </div>
 
   <div class="sidebar">
@@ -128,6 +137,7 @@ canvas#wheel {
       <div class="editable-list" id="editableList" contenteditable="true" spellcheck="false">
 ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JOVY<br>KIM<br>LIM<br>MEMO<br>NANO<br>OMAR<br>PRINCESS<br>QOMAR<br>RAY<br>SAM<br>TIM<br>URSULA<br>VICTOR<br>WENDY<br>XAVIER<br>YVONNE<br>ZAC
       </div>
+      <input type="hidden" id="preselectName" value="Jomar Daria">
       <div class="controls" style="display:flex; justify-content:space-between; margin-top:10px;">
         <button class="btn-enhanced" onclick="shuffleEntries()"><i class="fas fa-random"></i> Shuffle</button>
         <button class="btn-enhanced" onclick="sortEntries()"><i class="fas fa-sort-alpha-up"></i> Sort</button>
@@ -241,38 +251,56 @@ window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); res
 function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
 function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
 
-// Spin logic with tick sound
-function spinWheel(){
-  if(spinning || !entries.length) return;
-  spinning=true;
+// Spin logic
+function spinWheel() {
+  if (spinning || !entries.length) return;
+  spinning = true;
 
-  const duration=document.getElementById('spinTime').value*1000;
-  const totalRotations=Math.random()*3+5;
-  const startAngle=angle;
-  let startTime=null;
-  let lastTickIndex=-1;
+  unlockAudio();
 
-  function animate(ts){
-    if(!startTime) startTime=ts;
-    const elapsed=Math.min(ts-startTime,duration);
-    const progress=elapsed/duration;
-    const easedProgress=1-Math.pow(1-progress,3);
-    angle=startAngle+easedProgress*totalRotations*2*Math.PI;
+  const preselect = document.getElementById('preselectName').value.trim();
+  let targetIndex = null;
+
+  if (preselect) {
+    targetIndex = entries.findIndex(e => e.name.toUpperCase() === preselect.toUpperCase());
+  }
+
+  if (targetIndex === -1 || targetIndex === null) {
+    targetIndex = Math.floor(Math.random() * entries.length);
+  }
+
+  const duration = document.getElementById('spinTime').value * 1000;
+  const sliceAngle = 2 * Math.PI / entries.length;
+
+  const extraRotations = Math.floor(Math.random() * 3 + 5);
+  const finalAngle = 3 * Math.PI / 2 - targetIndex * sliceAngle + extraRotations * 2 * Math.PI;
+
+  const startAngle = angle;
+  let startTime = null;
+  let lastTickIndex = -1;
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = Math.min(ts - startTime, duration);
+    const progress = elapsed / duration;
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    angle = startAngle + (finalAngle - startAngle) * easedProgress;
     drawWheel();
 
-    const normalizedAngle=angle%(2*Math.PI);
-    const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
-    const sliceAngle=2*Math.PI/entries.length;
-    const currentIndex=Math.floor(pointerAngle/sliceAngle);
+    const normalizedAngle = angle % (2 * Math.PI);
+    const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+    const currentIndex = Math.floor(pointerAngle / sliceAngle);
 
-    if(soundEnabled() && currentIndex!==lastTickIndex){
-      spinSound.currentTime=0;
+    if (soundEnabled() && currentIndex !== lastTickIndex) {
+      spinSound.currentTime = 0;
       spinSound.play();
-      lastTickIndex=currentIndex;
+      lastTickIndex = currentIndex;
     }
 
-    if(progress<1){ requestAnimationFrame(animate); } else { finishSpin(); }
+    if (progress < 1) requestAnimationFrame(animate);
+    else finishSpin();
   }
+
   requestAnimationFrame(animate);
 }
 
@@ -291,10 +319,22 @@ function finishSpin(){
 }
 
 function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList();}
-function closeModal(){document.getElementById('winnerModal').classList.remove('active'); confetti=[];}
+
+// Modal close with clap stop
+function closeModal(){
+  document.getElementById('winnerModal').classList.remove('active');
+  confetti=[];
+  clapSound.pause();
+  clapSound.currentTime=0;
+}
+
 function clearResults(){ history=[]; updateResultsList(); updateBadges(); }
 
-if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
+if(sessionStorage.getItem('wheelEntries')){
+  entries=JSON.parse(sessionStorage.getItem('wheelEntries'));
+  history=JSON.parse(sessionStorage.getItem('winnerHistory'));
+  updateEditableList(); updateBadges(); updateResultsList(); drawWheel();
+} else { loadEntries(); }
 </script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Wheel of Names Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="{{ asset('assets/images/logo-icon.png') }}" type="image/png" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 body {
@@ -16,7 +17,7 @@ body {
 .wheel-wrapper {
   flex:1; display:flex; flex-direction:column; align-items:center; position:relative;
   min-width:300px; max-width:calc(100% - 320px);
-  margin-top:80px; /* space for fixed header */
+  margin-top:80px;
 }
 canvas#wheel {
   background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0,0,0,0.5); cursor:pointer;
@@ -66,11 +67,18 @@ canvas#wheel {
 #historyList { list-style:none; padding:0; margin:0; }
 #historyList li { background:#333; margin:4px 0; padding:6px 12px; border-radius:12px; }
 .center-circle {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100px; height:100px;
-  border-radius:50%; background:rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center;
-  cursor:pointer; transition:0.3s;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:100px;
+  height:100px;
+  border-radius:50%;
+  background:#4a90e2; 
+  cursor:pointer;
+  transition:0.3s;
 }
-.center-circle:hover { background:rgba(0,0,0,0.4); }
+.center-circle:hover { background:#357ABD; }
 .center-circle i { font-size:28px; color:#fff; transition:0.3s; }
 .modal-content .btn-secondary, .modal-content .btn-danger { padding:8px 16px; border:none; border-radius:10px; font-weight:bold; cursor:pointer; transition:0.3s; }
 .modal-content .btn-secondary { background:#777; color:#fff; }
@@ -86,12 +94,15 @@ canvas#wheel {
   height: 0;
   border-left: 15px solid transparent;
   border-right: 15px solid transparent;
-  border-top: 30px solid red; /* change from border-bottom to border-top */
+  border-top: 30px solid red;
   z-index: 5;
 }
 </style>
 </head>
 <body>
+
+<!-- Hidden input for preselect names JSON -->
+<input type="hidden" id="preselectName" value='["Jomar Daria","Roderick Valdez","MEMO"]'>
 
 <div class="header">
   <h1>Wheel of Names</h1>
@@ -106,7 +117,7 @@ canvas#wheel {
   <div class="wheel-wrapper">
     <canvas id="wheel"></canvas>
     <div id="wheel-pointer"></div>
-    <div class="center-circle" id="centerCircle" title="Add logo/image"><i class="fas fa-image"></i></div>
+    <div class="center-circle" id="centerCircle" title="Add logo/image"></div>
   </div>
 
   <div class="sidebar">
@@ -141,32 +152,27 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
   </div>
 </div>
 
-<audio id="spinSound" src="assets/sounds/spin.mp3" loop></audio>
+<audio id="tickSound" src="assets/sounds/tick.mp3"></audio>
 <audio id="clapSound" src="assets/sounds/clap.mp3"></audio>
 <audio id="shuffleSound" src="assets/sounds/shuffle.mp3"></audio>
 
 <script>
-// JavaScript for wheel functionality
 const canvas=document.getElementById('wheel'), ctx=canvas.getContext('2d');
-let spinSound=document.getElementById('spinSound'), clapSound=document.getElementById('clapSound'), shuffleSound=document.getElementById('shuffleSound');
+let tickSound=document.getElementById('tickSound'), clapSound=document.getElementById('clapSound'), shuffleSound=document.getElementById('shuffleSound');
 let audioUnlocked=false, entries=[], history=[], angle=0, spinning=false, selectedIndex=null, wheelImage=null;
-let idleRotationSpeed = 0.002; // radians per frame (slow)
-let idleAnimating = true;
+let idleRotationSpeed = 0.002;
 
-function animateIdle() {
-  if (!spinning) { // only rotate slowly when not spinning
-    angle += idleRotationSpeed;
-    drawWheel();
-  }
-  requestAnimationFrame(animateIdle);
-}
-animateIdle(); // start the idle animation loop
+function animateIdle() { if(!spinning){ angle+=idleRotationSpeed; drawWheel(); } requestAnimationFrame(animateIdle); }
+animateIdle();
 
-
-function unlockAudio(){ if(audioUnlocked) return; [spinSound, clapSound, shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
+function unlockAudio(){ if(audioUnlocked) return; [tickSound, clapSound, shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
 function soundEnabled(){ return document.getElementById('soundToggle').checked; }
 
-function loadEntries(){ const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); entries=list.map(n=>({name:n})); updateBadges(); drawWheel(); }
+function loadEntries(){ 
+  const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); 
+  entries=list.map(n=>({name:n})); 
+  updateBadges(); drawWheel(); 
+}
 function updateEditableList(){ document.getElementById('editableList').innerHTML=entries.map(e=>e.name).join('<br>'); }
 function updateBadges(){ document.getElementById('entriesCount').textContent=entries.length; document.getElementById('resultsCount').textContent=history.length; }
 function updateResultsList(){ document.getElementById('historyList').innerHTML=history.map(n=>`<li>${n}</li>`).join(''); }
@@ -202,14 +208,11 @@ function drawWheel(){
   ctx.restore();
 }
 
-// Spin wheel on canvas click
 canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
 document.getElementById('editableList').addEventListener('input', loadEntries);
 
-// Fullscreen
 function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
 
-// Center circle for image upload
 document.getElementById('centerCircle').addEventListener('click',()=>{
   const input=document.createElement('input'); input.type='file'; input.accept='image/*';
   input.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const img=new Image(); img.onload=()=>{ wheelImage=img; drawWheel(); }; img.src=URL.createObjectURL(file); };
@@ -222,36 +225,63 @@ const cctx=confettiCanvas.getContext('2d'); let confetti=[], confettiAnimating=f
 function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
 window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); resizeConfetti();
 function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
-function animateConfetti(){
-  cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
-  if(document.getElementById('winnerModal').classList.contains('active')){
-    for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});}
-  }
-  confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; });
-  confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active'));
-  if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false;
-}
+function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
+
+// Parse preselect JSON
+let preselectNames = [];
+try {
+  const input = document.getElementById('preselectName');
+  if(input && input.value) preselectNames = JSON.parse(input.value);
+} catch(e){ console.warn('Invalid preselect JSON'); }
 
 // Spin logic
-function spinWheel(){
-  if(spinning || !entries.length) return; spinning=true;
-  if(soundEnabled()){ spinSound.currentTime=0; spinSound.play(); }
-  const duration=document.getElementById('spinTime').value*1000;
-  const totalRotations=Math.random()*3+5; const startAngle=angle; let startTime=null;
-  function animate(ts){
-    if(!startTime) startTime=ts;
-    const elapsed=Math.min(ts-startTime,duration);
-    const progress=elapsed/duration;
-    const easedProgress=1-Math.pow(1-progress,3);
-    angle=startAngle+easedProgress*totalRotations*2*Math.PI;
-    drawWheel();
-    if(progress<1){ requestAnimationFrame(animate); } else { finishSpin(); }
+function spinWheel() {
+  if (spinning || !entries.length) return;
+  spinning = true;
+
+  // Pick first valid preselect name in entries
+  let targetIndex = null;
+  for(let name of preselectNames){
+    const idx = entries.findIndex(e => e.name.toUpperCase() === name.toUpperCase());
+    if(idx !== -1){ targetIndex=idx; break; }
   }
+  if(targetIndex === null) targetIndex = Math.floor(Math.random() * entries.length);
+
+  const duration = document.getElementById('spinTime').value * 1000;
+  const sliceAngle = 2 * Math.PI / entries.length;
+  const startAngle = 0;
+  let startTime = null;
+  let lastTickIndex = -1;
+  const randomExtraRotations = Math.floor(Math.random() * 3 + 5);
+  const finalAngle = 3 * Math.PI / 2 - targetIndex * sliceAngle + randomExtraRotations * 2 * Math.PI;
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = Math.min(ts - startTime, duration);
+    const progress = elapsed / duration;
+    const easedProgress = 1 - Math.pow(1 - progress, 5);
+    angle = startAngle + (finalAngle - startAngle) * easedProgress;
+    drawWheel();
+
+    const normalizedAngle = angle % (2 * Math.PI);
+    const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+    const currentIndex = Math.floor(pointerAngle / sliceAngle);
+
+    if (soundEnabled() && currentIndex !== lastTickIndex) {
+      tickSound.currentTime = 0;
+      tickSound.play();
+      lastTickIndex = currentIndex;
+    }
+
+    if (progress < 1) requestAnimationFrame(animate);
+    else finishSpin();
+  }
+
   requestAnimationFrame(animate);
 }
 
 function finishSpin(){
-  spinning=false; spinSound.pause(); spinSound.currentTime=0;
+  spinning=false;
   const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
   const sliceAngle=2*Math.PI/entries.length;
@@ -265,10 +295,9 @@ function finishSpin(){
 }
 
 function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList();}
-function closeModal(){document.getElementById('winnerModal').classList.remove('active'); confetti=[];}
+function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); confetti=[]; clapSound.pause(); clapSound.currentTime=0; }
 
 if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
-
 </script>
 </body>
 </html>
