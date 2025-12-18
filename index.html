@@ -115,11 +115,11 @@ canvas#wheel {
     gap: 8px;
   }
 
-  .container {
+ .container {
+    margin-top: 120px; /* Adjust depending on header height */
     flex-direction: column;
     align-items: center;
-    margin-top: 20px;
-  }
+}
 
   .wheel-wrapper {
     max-width: 95vw;
@@ -136,16 +136,14 @@ canvas#wheel {
     height: 70px;
   }
 
-  .sidebar {
-    position: relative;  /* below the wheel */
-    width: 95%;
-    max-height: none;
-    margin-top: 20px;
+ .sidebar {
+    position: relative;
+    width: 90%;
+    max-width: 350px;
+    margin: 20px auto 0; /* top margin 20px, centered horizontally */
     border-radius: 12px;
     padding: 10px;
-    display: flex;
-    flex-direction: column;
-  }
+}
 
   .tab-content {
     max-height: 200px;
@@ -261,22 +259,20 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  const sidebar = document.querySelector('.sidebar');
   let w;
-
   if(window.innerWidth <= 991.98){ // mobile
-    w = Math.min(window.innerWidth * 0.9, 400); // 90% of viewport width max 400px
+    w = Math.min(window.innerWidth * 0.9, 400); // 90% of viewport width
   } else { // desktop
-    const sidebarWidth = sidebar.offsetWidth + 60;
-    w = Math.min(window.innerWidth - sidebarWidth, 700); // same as before
+    const sidebarWidth = document.querySelector('.sidebar').offsetWidth + 60;
+    w = Math.min(window.innerWidth - sidebarWidth, 700);
   }
-
   canvas.width = w; 
   canvas.height = w; 
   drawWheel();
 }
 window.addEventListener('resize', resizeCanvas); 
 resizeCanvas();
+
 
 
 function drawWheel(){
