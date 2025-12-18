@@ -16,7 +16,7 @@ body {
 .wheel-wrapper {
   flex:1; display:flex; flex-direction:column; align-items:center; position:relative;
   min-width:300px; max-width:calc(100% - 320px);
-  margin-top:80px; /* space for fixed header */
+  margin-top:80px;
 }
 canvas#wheel {
   background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0,0,0,0.5); cursor:pointer;
@@ -89,6 +89,16 @@ canvas#wheel {
   border-top: 30px solid red;
   z-index: 5;
 }
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .container { flex-direction: column; align-items: center; }
+  .wheel-wrapper { max-width: 90%; margin-top: 100px; }
+  .sidebar { position: relative; top: auto; right: auto; width: 95%; max-width: none; margin-top: 20px; flex: none; }
+  .tabs { flex-wrap: wrap; }
+  .tab { flex: 50%; }
+  .controls { flex-wrap: wrap; gap: 4px; }
+}
 </style>
 </head>
 <body>
@@ -124,13 +134,10 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
       </div>
     </div>
     <div class="tab-content" id="results" style="display:none;">
-  <h3>Winner History</h3>
-  <ul id="historyList"></ul>
-  <div class="controls" style="margin-top:10px; justify-content:flex-end;">
-    <button class="btn-enhanced" onclick="clearResults()"><i class="fas fa-trash"></i> Clear</button>
-  </div>
-</div>
-
+      <h3>Winner History</h3>
+      <ul id="historyList"></ul>
+      <button class="btn-enhanced" style="margin-top:10px;" onclick="clearResults()"><i class="fas fa-trash"></i> Clear</button>
+    </div>
   </div>
 </div>
 
@@ -145,18 +152,18 @@ ALICE<br>BOB<br>CHARLIE<br>DAVID<br>EVE<br>FRANK<br>GINA<br>HENRY<br>ISAAC<br>JO
   </div>
 </div>
 
-<!-- Audio -->
-<audio id="tickSound" src="assets/sounds/tick.mp3"></audio>
+<audio id="spinSound" src="assets/sounds/tick.mp3"></audio>
 <audio id="clapSound" src="assets/sounds/clap.mp3"></audio>
 <audio id="shuffleSound" src="assets/sounds/shuffle.mp3"></audio>
 
 <script>
-// JavaScript for wheel functionality
-const canvas=document.getElementById('wheel'), ctx=canvas.getContext('2d');
-let tickSound=document.getElementById('tickSound'), clapSound=document.getElementById('clapSound'), shuffleSound=document.getElementById('shuffleSound');
-let audioUnlocked=false, entries=[], history=[], angle=0, spinning=false, selectedIndex=null, wheelImage=null;
-let idleRotationSpeed = 0.002; 
-let lastTickIndex = null;
+const canvas = document.getElementById('wheel'), ctx = canvas.getContext('2d');
+let spinSound = document.getElementById('spinSound'),
+    clapSound = document.getElementById('clapSound'),
+    shuffleSound = document.getElementById('shuffleSound');
+
+let audioUnlocked = false, entries = [], history = [], angle = 0, spinning = false, selectedIndex = null, wheelImage = null;
+let idleRotationSpeed = 0.002;
 
 function animateIdle() {
   if (!spinning) { angle += idleRotationSpeed; drawWheel(); }
@@ -164,10 +171,21 @@ function animateIdle() {
 }
 animateIdle();
 
-function unlockAudio(){ if(audioUnlocked) return; [tickSound, clapSound, shuffleSound].forEach(a=>{ a.volume=0.7; a.muted=false; a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); }); audioUnlocked=true; }
+function unlockAudio(){ 
+  if(audioUnlocked) return; 
+  [spinSound, clapSound, shuffleSound].forEach(a=>{
+    a.volume=0.7; a.muted=false; 
+    a.play().then(()=>{a.pause();a.currentTime=0;}).catch(()=>{}); 
+  }); 
+  audioUnlocked=true; 
+}
 function soundEnabled(){ return document.getElementById('soundToggle').checked; }
 
-function loadEntries(){ const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); entries=list.map(n=>({name:n})); updateBadges(); drawWheel(); }
+function loadEntries(){ 
+  const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); 
+  entries=list.map(n=>({name:n})); 
+  updateBadges(); drawWheel(); 
+}
 function updateEditableList(){ document.getElementById('editableList').innerHTML=entries.map(e=>e.name).join('<br>'); }
 function updateBadges(){ document.getElementById('entriesCount').textContent=entries.length; document.getElementById('resultsCount').textContent=history.length; }
 function updateResultsList(){ document.getElementById('historyList').innerHTML=history.map(n=>`<li>${n}</li>`).join(''); }
@@ -176,9 +194,9 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  const sidebarWidth=document.querySelector('.sidebar').offsetWidth+60;
-  const w=Math.min(window.innerWidth-sidebarWidth,700);
-  canvas.width=w; canvas.height=w; drawWheel();
+  const sidebarWidth = window.innerWidth > 991.98 ? document.querySelector('.sidebar').offsetWidth + 60 : 0;
+  const w = Math.min(window.innerWidth - sidebarWidth, 700);
+  canvas.width = w; canvas.height = w; drawWheel();
 }
 window.addEventListener('resize',resizeCanvas); resizeCanvas();
 
@@ -203,6 +221,7 @@ function drawWheel(){
   ctx.restore();
 }
 
+// Spin wheel
 canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
 document.getElementById('editableList').addEventListener('input', loadEntries);
 
@@ -220,23 +239,18 @@ const cctx=confettiCanvas.getContext('2d'); let confetti=[], confettiAnimating=f
 function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
 window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); resizeConfetti();
 function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
-function animateConfetti(){
-  cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
-  if(document.getElementById('winnerModal').classList.contains('active')){
-    for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});}
-  }
-  confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; });
-  confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active'));
-  if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false;
-}
+function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
 
-// Spin logic with tick
+// Spin logic with tick sound
 function spinWheel(){
-  if(spinning || !entries.length) return; spinning=true;
-  lastTickIndex=null;
+  if(spinning || !entries.length) return;
+  spinning=true;
+
   const duration=document.getElementById('spinTime').value*1000;
-  const totalRotations=Math.random()*3+5; 
-  const startAngle=angle; let startTime=null;
+  const totalRotations=Math.random()*3+5;
+  const startAngle=angle;
+  let startTime=null;
+  let lastTickIndex=-1;
 
   function animate(ts){
     if(!startTime) startTime=ts;
@@ -244,26 +258,26 @@ function spinWheel(){
     const progress=elapsed/duration;
     const easedProgress=1-Math.pow(1-progress,3);
     angle=startAngle+easedProgress*totalRotations*2*Math.PI;
+    drawWheel();
 
-    // Tick per slice
+    const normalizedAngle=angle%(2*Math.PI);
+    const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
     const sliceAngle=2*Math.PI/entries.length;
-    const pointerAngle=(3*Math.PI/2-angle+2*Math.PI)%(2*Math.PI);
     const currentIndex=Math.floor(pointerAngle/sliceAngle);
+
     if(soundEnabled() && currentIndex!==lastTickIndex){
-      tickSound.currentTime=0;
-      tickSound.play();
+      spinSound.currentTime=0;
+      spinSound.play();
       lastTickIndex=currentIndex;
     }
 
-    drawWheel();
     if(progress<1){ requestAnimationFrame(animate); } else { finishSpin(); }
   }
   requestAnimationFrame(animate);
 }
 
 function finishSpin(){
-  spinning=false;
-  lastTickIndex=null;
+  spinning=false; spinSound.pause(); spinSound.currentTime=0;
   const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
   const sliceAngle=2*Math.PI/entries.length;
@@ -278,16 +292,9 @@ function finishSpin(){
 
 function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList();}
 function closeModal(){document.getElementById('winnerModal').classList.remove('active'); confetti=[];}
+function clearResults(){ history=[]; updateResultsList(); updateBadges(); }
 
 if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
-
-function clearResults() {
-  history = [];
-  updateResultsList();
-  updateBadges();
-}
-
-
 </script>
 </body>
 </html>
