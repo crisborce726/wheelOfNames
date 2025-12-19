@@ -214,18 +214,20 @@ function spinWheel() {
   const startAngle = angle % (2 * Math.PI);
   const targetIndex = Math.floor(Math.random() * entries.length);
 
-  // Longer main spin for suspense
+  // Main spin parameters
   const spinDuration = 6500; // 6.5 seconds main spin
-
-  const extraRotations = 8; // more rotations for longer suspense
+  const extraRotations = 8;
   const finalAngle =
     startAngle + extraRotations * 2 * Math.PI +
     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle);
 
   let startTime = null;
 
-  function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
+  // Cinematic easing: slow start → fast middle → slow finish
+  function easeInOutCubic(t) {
+    return t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
   function animate(ts) {
@@ -233,13 +235,12 @@ function spinWheel() {
     const elapsed = ts - startTime;
     const progress = Math.min(elapsed / spinDuration, 1);
 
-    angle = startAngle + (finalAngle - startAngle) * easeOutCubic(progress);
+    angle = startAngle + (finalAngle - startAngle) * easeInOutCubic(progress);
 
     // Tick sound per slice
     const normalizedAngle = angle % (2 * Math.PI);
     const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
     const currentIndex = Math.floor(pointerAngle / sliceAngle);
-
     if (soundEnabled() && currentIndex !== lastTickIndex) {
       tickSound.currentTime = 0;
       tickSound.play();
@@ -255,10 +256,10 @@ function spinWheel() {
     }
   }
 
-  // Suspenseful settle parameters
-  const settleDuration = 2000; // 2 seconds
-  const amplitude = sliceAngle / 5; // gentle wobble
-  const oscillations = 4; // smooth back-and-forth
+  // Dramatic settle parameters for suspense
+  const settleDuration = 2800; // longer settle: 2.8 seconds
+  const amplitude = sliceAngle / 6; // softer wobble
+  const oscillations = 3; // fewer, slower oscillations
 
   function startSettle(baseAngle) {
     const settleStart = performance.now();
@@ -267,7 +268,7 @@ function spinWheel() {
       const elapsed = ts - settleStart;
       const t = Math.min(elapsed / settleDuration, 1);
 
-      // Damped oscillation for realistic settle
+      // Damped oscillation
       const damping = Math.pow(1 - t, 2);
       const oscillation = Math.sin(t * Math.PI * oscillations) * amplitude * damping;
       angle = baseAngle + oscillation;
@@ -297,8 +298,6 @@ function spinWheel() {
 
   requestAnimationFrame(animate);
 }
-
-
 
 
 
