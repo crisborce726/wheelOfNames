@@ -7,7 +7,6 @@
 <link rel="icon" href="{{ asset('assets/images/logo-icon.png') }}" type="image/png" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* --- Styles unchanged from your last version --- */
 body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:#2a2a2a; color:#fff; overflow-x:hidden; }
 .container { display:flex; flex-wrap:wrap; justify-content:center; position:relative; }
 .wheel-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; min-width:300px; max-width:calc(100% - 320px); margin-top:80px; }
@@ -57,8 +56,6 @@ canvas#wheel { background:#fff; border-radius:50%; box-shadow:0 10px 30px rgba(0
   .btn-enhanced, .modal-content .btn-secondary, .modal-content .btn-danger { font-size: 13px; padding: 8px 12px; }
   #wheel-pointer { border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 24px solid red; }
 }
-
-/* ===== LIGHT MODE (ADDED ONLY) ===== */
 body.light-mode { background:#f4f6f8; color:#111; }
 body.light-mode .header { background:#ffffff; box-shadow:0 4px 10px rgba(0,0,0,0.15); }
 body.light-mode .sidebar { background:#ffffff; }
@@ -72,32 +69,24 @@ body.light-mode .fullscreen-btn:hover { background:#ccc; }
 </head>
 <body>
 
-<input type="hidden" id="preselectName" value='["Names","Name1","Name2","Name3"]'>
-
 <div class="header">
   <h1>Wheel of Names</h1>
-
   <div class="controls">
     <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
       <i class="fas fa-expand"></i>
     </button>
-
-    <!-- Dark / Light Mode Toggle -->
     <button class="fullscreen-btn" onclick="toggleTheme()" title="Dark / Light Mode">
       <i class="fas fa-adjust"></i>
     </button>
-
     <label class="checkbox-label">
       <input type="checkbox" id="soundToggle" checked> Sound
     </label>
-
     <label>
       Spin Time
       <input type="range" id="spinTime" min="6" max="14" value="10">
     </label>
   </div>
 </div>
-
 
 <div class="container">
   <div class="wheel-wrapper">
@@ -214,80 +203,56 @@ function drawWheel(){
   document.getElementById('wheel-pointer').style.borderTopColor=getPointerSliceColor();
 }
 
-// --- Spin logic with synced tick sound ---
-// --- Spin logic with TRUE boundary-synced tick sound ---
-function spinWheel(){
-  if(spinning || !entries.length) return;
-
+// --- Enhanced spin logic (mostly uniform speed) ---
+function spinWheel() {
+  if (spinning || !entries.length) return;
   spinning = true;
   lastTickIndex = null;
+  lockedCenterColor = null;
 
-  let targetIndex = null;
-  const preselectInput = document.getElementById('preselectName');
-  let preselectNames = [];
-
-  try {
-    if(preselectInput && preselectInput.value){
-      preselectNames = JSON.parse(preselectInput.value);
-    }
-  } catch(e){}
-
-  for(let name of preselectNames){
-    const idx = entries.findIndex(
-      e => e.name.toUpperCase() === name.toUpperCase()
-    );
-    if(idx !== -1){
-      targetIndex = idx;
-      break;
-    }
-  }
-
-  if(targetIndex === null){
-    targetIndex = Math.floor(Math.random() * entries.length);
-  }
-
-  const duration = document.getElementById('spinTime').value * 1000;
   const sliceAngle = (2 * Math.PI) / entries.length;
-  const startAngle = angle;
+  const startAngle = angle % (2 * Math.PI); // normalize current angle
+  const targetIndex = Math.floor(Math.random() * entries.length);
+  const duration = document.getElementById('spinTime').value * 1000;
+
+  // Ensure at least 5-7 extra rotations
+  const extraRotations = Math.floor(Math.random() * 3 + 5);
+  // Calculate final angle relative to startAngle
+  const finalAngle = startAngle + (extraRotations * 2 * Math.PI) + 
+                     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle - startAngle);
+
   let startTime = null;
 
-  const extraRotations = Math.floor(Math.random() * 3 + 5);
-  const finalAngle =
-  (3 * Math.PI) / 2 -
-  (targetIndex + 0.5) * sliceAngle +
-  extraRotations * 2 * Math.PI;
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = ts - startTime;
+    const progress = Math.min(elapsed / duration, 1);
 
-
-  let previousBoundary = null;
-
-  function animate(ts){
-    if(!startTime) startTime = ts;
-
-    const elapsed = Math.min(ts - startTime, duration);
-    const progress = elapsed / duration;
-
-    // Smooth deceleration
-    const eased = 1 - Math.pow(1 - progress, 5);
-    angle = startAngle + (finalAngle - startAngle) * eased;
-
-    // ---- TRUE boundary-based tick detection ----
-    const normalizedAngle=angle%(2*Math.PI);
-    const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
-    const currentIndex=Math.floor(pointerAngle/sliceAngle);
-    if(soundEnabled() && currentIndex!==lastTickIndex){
-      tickSound.currentTime=0;
-      tickSound.play();
-      lastTickIndex=currentIndex;
+    // Uniform speed with slight ease-out at last 15%
+    let eased;
+    if (progress < 0.85) {
+      eased = progress / 0.85; // nearly linear
+    } else {
+      const t = (progress - 0.85) / 0.15;
+      eased = 0.85 + (1 - Math.pow(1 - t, 3)) * 0.15; // cubic ease-out
     }
 
+    angle = startAngle + (finalAngle - startAngle) * eased;
+
+    // Tick sound
+    const normalizedAngle = angle % (2 * Math.PI);
+    const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+    const currentIndex = Math.floor(pointerAngle / sliceAngle);
+    if (soundEnabled() && currentIndex !== lastTickIndex) {
+      tickSound.currentTime = 0;
+      tickSound.play();
+      lastTickIndex = currentIndex;
+    }
 
     drawWheel();
 
-    if(progress < 1){
-      requestAnimationFrame(animate);
-    } else {
-      finishSpin();
-    }
+    if (progress < 1) requestAnimationFrame(animate);
+    else { finishSpin(); spinning = false; }
   }
 
   requestAnimationFrame(animate);
@@ -299,7 +264,7 @@ function finishSpin(){
   const sliceAngle=2*Math.PI/entries.length;
   const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
-  selectedIndex=(Math.floor(pointerAngle / sliceAngle)) % entries.length;
+  selectedIndex=Math.floor(pointerAngle / sliceAngle) % entries.length;
   const winner=entries[selectedIndex].name;
   history.push(winner); updateBadges(); updateResultsList();
   document.getElementById('winnerName').textContent=winner;
@@ -309,22 +274,45 @@ function finishSpin(){
   launchConfetti();
 }
 
-function confirmWinner(){ entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); updateEditableList(); updateBadges(); updateResultsList(); lockedCenterColor=null; }
-function closeModal(){ document.getElementById('winnerModal').classList.remove('active'); confetti=[]; clapSound.pause(); clapSound.currentTime=0; }
+function confirmWinner(){ 
+  entries.splice(selectedIndex,1); selectedIndex=null; drawWheel(); closeModal(); 
+  updateEditableList(); updateBadges(); updateResultsList(); 
+  lockedCenterColor=null; 
+}
 
-// --- Confetti ---
-const confettiCanvas=document.createElement('canvas'); confettiCanvas.style.position='fixed'; confettiCanvas.style.inset='0'; confettiCanvas.style.pointerEvents='none'; document.body.appendChild(confettiCanvas);
+function closeModal() {
+  document.getElementById('winnerModal').classList.remove('active');
+  confetti=[]; 
+  clapSound.pause(); clapSound.currentTime=0;
+  lockedCenterColor=null;
+  lastTickIndex=null;
+}
+
+const confettiCanvas=document.createElement('canvas'); 
+confettiCanvas.style.position='fixed'; confettiCanvas.style.inset='0'; confettiCanvas.style.pointerEvents='none'; 
+document.body.appendChild(confettiCanvas);
 const cctx=confettiCanvas.getContext('2d'); let confetti=[],confettiAnimating=false;
 function resizeConfetti(){ confettiCanvas.width=window.innerWidth; confettiCanvas.height=window.innerHeight; }
 window.addEventListener('resize',()=>{ resizeCanvas(); resizeConfetti(); }); resizeConfetti();
-function launchConfetti(){ for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`}); } 
-  if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } }
-function animateConfetti(){ cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); if(document.getElementById('winnerModal').classList.contains('active')){ for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} } 
-confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); 
-confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); 
-if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; }
+function launchConfetti(){ 
+  for(let i=0;i<120;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`}); } 
+  if(!confettiAnimating){ confettiAnimating=true; animateConfetti(); } 
+}
+function animateConfetti(){ 
+  cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); 
+  if(document.getElementById('winnerModal').classList.contains('active')){
+    for(let i=0;i<2;i++){ confetti.push({x:Math.random()*confettiCanvas.width,y:-20,r:Math.random()*6+4,d:Math.random()*3+2,c:`hsl(${Math.random()*360},100%,50%)`});} 
+  }
+  confetti.forEach(p=>{ cctx.fillStyle=p.c; cctx.beginPath(); cctx.arc(p.x,p.y,p.r,0,2*Math.PI); cctx.fill(); p.y+=p.d; }); 
+  confetti=confetti.filter(p=>p.y<confettiCanvas.height||document.getElementById('winnerModal').classList.contains('active')); 
+  if(confetti.length||document.getElementById('winnerModal').classList.contains('active')) requestAnimationFrame(animateConfetti); else confettiAnimating=false; 
+}
 
-if(sessionStorage.getItem('wheelEntries')){ entries=JSON.parse(sessionStorage.getItem('wheelEntries')); history=JSON.parse(sessionStorage.getItem('winnerHistory')); updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); } else { loadEntries(); }
+if(sessionStorage.getItem('wheelEntries')){ 
+  entries=JSON.parse(sessionStorage.getItem('wheelEntries')); 
+  history=JSON.parse(sessionStorage.getItem('winnerHistory')); 
+  updateEditableList(); updateBadges(); updateResultsList(); drawWheel(); 
+} else { loadEntries(); }
 
 canvas.addEventListener('click',()=>{ unlockAudio(); spinWheel(); });
 document.getElementById('editableList').addEventListener('input', loadEntries);
@@ -335,20 +323,13 @@ document.getElementById('centerCircle').addEventListener('click',()=>{
 });
 function toggleFullscreen(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
 </script>
+
 <script>
-/* ===== THEME LOGIC (ADDED ONLY) ===== */
 function toggleTheme(){
   document.body.classList.toggle('light-mode');
-  localStorage.setItem(
-    'wheelTheme',
-    document.body.classList.contains('light-mode') ? 'light' : 'dark'
-  );
+  localStorage.setItem('wheelTheme',document.body.classList.contains('light-mode') ? 'light' : 'dark');
 }
-(function(){
-  if(localStorage.getItem('wheelTheme') === 'light'){
-    document.body.classList.add('light-mode');
-  }
-})();
+(function(){ if(localStorage.getItem('wheelTheme')==='light'){document.body.classList.add('light-mode');} })();
 </script>
 </body>
 </html>
