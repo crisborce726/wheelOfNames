@@ -158,7 +158,7 @@ function soundEnabled(){ return document.getElementById('soundToggle').checked; 
 function loadEntries(){ 
   const list=document.getElementById('editableList').innerText.split('\n').map(l=>l.trim()).filter(l=>l); 
   entries=list.map(n=>({name:n})); 
-  rotationOffset=Math.PI/entries.length; 
+  rotationOffset=0; 
   updateBadges(); drawWheel(); 
 }
 function updateEditableList(){ document.getElementById('editableList').innerHTML=entries.map(e=>e.name).join('<br>'); }
@@ -215,46 +215,91 @@ function drawWheel(){
 }
 
 // --- Spin logic with synced tick sound ---
+// --- Spin logic with TRUE boundary-synced tick sound ---
 function spinWheel(){
-  if(spinning||!entries.length) return;
-  spinning=true;
-  lastTickIndex=-1;
-  let targetIndex=null;
-  const preselectInput=document.getElementById('preselectName'); let preselectNames=[];
-  try{ if(preselectInput&&preselectInput.value) preselectNames=JSON.parse(preselectInput.value); }catch(e){}
-  for(let name of preselectNames){ const idx=entries.findIndex(e=>e.name.toUpperCase()===name.toUpperCase()); if(idx!==-1){targetIndex=idx; break;} }
-  if(targetIndex===null) targetIndex=Math.floor(Math.random()*entries.length);
+  if(spinning || !entries.length) return;
 
-  const duration=document.getElementById('spinTime').value*1000;
-  const sliceAngle=2*Math.PI/entries.length; const startAngle=0; let startTime=null; 
-  const randomExtraRotations=Math.floor(Math.random()*3+5);
-  const finalAngle=3*Math.PI/2 - targetIndex*sliceAngle + randomExtraRotations*2*Math.PI - rotationOffset;
+  spinning = true;
+  lastTickIndex = null;
+
+  let targetIndex = null;
+  const preselectInput = document.getElementById('preselectName');
+  let preselectNames = [];
+
+  try {
+    if(preselectInput && preselectInput.value){
+      preselectNames = JSON.parse(preselectInput.value);
+    }
+  } catch(e){}
+
+  for(let name of preselectNames){
+    const idx = entries.findIndex(
+      e => e.name.toUpperCase() === name.toUpperCase()
+    );
+    if(idx !== -1){
+      targetIndex = idx;
+      break;
+    }
+  }
+
+  if(targetIndex === null){
+    targetIndex = Math.floor(Math.random() * entries.length);
+  }
+
+  const duration = document.getElementById('spinTime').value * 1000;
+  const sliceAngle = (2 * Math.PI) / entries.length;
+  const startAngle = angle;
+  let startTime = null;
+
+  const extraRotations = Math.floor(Math.random() * 3 + 5);
+  const finalAngle =
+  (3 * Math.PI) / 2 -
+  (targetIndex + 0.5) * sliceAngle +
+  extraRotations * 2 * Math.PI;
+
+
+  let previousBoundary = null;
 
   function animate(ts){
-    if(!startTime) startTime=ts;
-    const elapsed=Math.min(ts-startTime,duration);
-    const progress=elapsed/duration;
-    const easedProgress=1-Math.pow(1-progress,5);
-    angle=startAngle+(finalAngle-startAngle)*easedProgress;
+    if(!startTime) startTime = ts;
 
-    // --- tick only when crossing slice ---
+    const elapsed = Math.min(ts - startTime, duration);
+    const progress = elapsed / duration;
+
+    // Smooth deceleration
+    const eased = 1 - Math.pow(1 - progress, 5);
+    angle = startAngle + (finalAngle - startAngle) * eased;
+
+    // ---- TRUE boundary-based tick detection ----
     const normalizedAngle=angle%(2*Math.PI);
     const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
     const currentIndex=Math.floor(pointerAngle/sliceAngle);
-    if(soundEnabled() && currentIndex!==lastTickIndex){ tickSound.currentTime=0; tickSound.play(); lastTickIndex=currentIndex; }
+    if(soundEnabled() && currentIndex!==lastTickIndex){
+      tickSound.currentTime=0;
+      tickSound.play();
+      lastTickIndex=currentIndex;
+    }
+
 
     drawWheel();
-    if(progress<1) requestAnimationFrame(animate); else finishSpin();
+
+    if(progress < 1){
+      requestAnimationFrame(animate);
+    } else {
+      finishSpin();
+    }
   }
+
   requestAnimationFrame(animate);
 }
+
 
 function finishSpin(){
   spinning=false;
   const sliceAngle=2*Math.PI/entries.length;
   const normalizedAngle=angle%(2*Math.PI);
   const pointerAngle=(3*Math.PI/2-normalizedAngle+2*Math.PI)%(2*Math.PI);
-  selectedIndex=Math.floor(pointerAngle/sliceAngle);
+  selectedIndex=(Math.floor(pointerAngle / sliceAngle)) % entries.length;
   const winner=entries[selectedIndex].name;
   history.push(winner); updateBadges(); updateResultsList();
   document.getElementById('winnerName').textContent=winner;
