@@ -207,22 +207,21 @@ function drawWheel(){
 function spinWheel() {
   if (spinning || !entries.length) return;
   spinning = true;
-<<<<<<< HEAD
+  lastTickIndex = null;
   lockedCenterColor = null;
 
   const sliceAngle = (2 * Math.PI) / entries.length;
   const startAngle = angle % (2 * Math.PI);
   const targetIndex = Math.floor(Math.random() * entries.length);
   const duration = document.getElementById('spinTime').value * 1000;
-  const extraRotations = Math.floor(Math.random() * 3 + 5);
 
-  const finalAngle = startAngle + extraRotations * 2 * Math.PI +
-                     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle - startAngle);
+  const extraRotations = 6;
+  const finalAngle =
+    startAngle + extraRotations * 2 * Math.PI +
+    ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle);
 
   let startTime = null;
-  let lastTickAngle = angle;
 
-  // Cubic ease-out function for smooth deceleration
   function easeOutCubic(t) {
     return 1 - Math.pow(1 - t, 3);
   }
@@ -232,72 +231,67 @@ function spinWheel() {
     const elapsed = ts - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
-    // Smooth deceleration
+    // Main spin with cubic ease-out
     const eased = easeOutCubic(progress);
-    let baseAngle = startAngle + (finalAngle - startAngle) * eased;
-
-    // Optional wobble effect
-    const wobbleAmplitude = Math.PI / 180 * 1.5; // 1.5 degrees
-    const wobbleFrequency = 12;
-    const wobble = Math.sin(progress * Math.PI * wobbleFrequency) * wobbleAmplitude;
-    angle = baseAngle + wobble;
-
-    // Tick sound based on slice crossing
-    const crossedSlices = Math.floor(baseAngle / sliceAngle);
-    const lastCrossedSlices = Math.floor(lastTickAngle / sliceAngle);
-    if (soundEnabled() && crossedSlices !== lastCrossedSlices) {
-      tickSound.currentTime = 0;
-      tickSound.play();
-    }
-    lastTickAngle = baseAngle;
-=======
-  lastTickIndex = null;
-  lockedCenterColor = null;
-
-  const sliceAngle = (2 * Math.PI) / entries.length;
-  const startAngle = angle % (2 * Math.PI); // normalize current angle
-  const targetIndex = Math.floor(Math.random() * entries.length);
-  const duration = document.getElementById('spinTime').value * 1000;
-
-  // Ensure at least 5-7 extra rotations
-  const extraRotations = Math.floor(Math.random() * 3 + 5);
-  // Calculate final angle relative to startAngle
-  const finalAngle = startAngle + (extraRotations * 2 * Math.PI) + 
-                     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle - startAngle);
-
-  let startTime = null;
-
-  function animate(ts) {
-    if (!startTime) startTime = ts;
-    const elapsed = ts - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-
-    // Uniform speed with slight ease-out at last 15%
-    let eased;
-    if (progress < 0.85) {
-      eased = progress / 0.85; // nearly linear
-    } else {
-      const t = (progress - 0.85) / 0.15;
-      eased = 0.85 + (1 - Math.pow(1 - t, 3)) * 0.15; // cubic ease-out
-    }
-
     angle = startAngle + (finalAngle - startAngle) * eased;
 
-    // Tick sound
+    // Tick sound per slice
     const normalizedAngle = angle % (2 * Math.PI);
     const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
     const currentIndex = Math.floor(pointerAngle / sliceAngle);
+
     if (soundEnabled() && currentIndex !== lastTickIndex) {
       tickSound.currentTime = 0;
       tickSound.play();
       lastTickIndex = currentIndex;
     }
->>>>>>> 889579e3538a2a748061dc6451c1faea4325a961
 
     drawWheel();
 
-    if (progress < 1) requestAnimationFrame(animate);
-    else { finishSpin(); spinning = false; }
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      // Start slow settle/bounce
+      startSettle(finalAngle);
+    }
+  }
+
+  // Subtle bounce/settle effect at the end
+  function startSettle(baseAngle) {
+    const settleDuration = 800; // ms
+    const settleStart = performance.now();
+    const amplitude = sliceAngle / 4; // max back-and-forth angle
+
+    function settle(ts) {
+      const elapsed = ts - settleStart;
+      const t = Math.min(elapsed / settleDuration, 1);
+
+      // Damped oscillation: angle oscillates and gradually decreases
+      const damping = Math.pow(1 - t, 2); // decay over time
+      const oscillation = Math.sin(t * Math.PI * 3) * amplitude * damping; // 3 oscillations
+      angle = baseAngle + oscillation;
+
+      // Optional tick sound during settle (if crossing slices)
+      const normalizedAngle = angle % (2 * Math.PI);
+      const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+      const currentIndex = Math.floor(pointerAngle / sliceAngle);
+      if (soundEnabled() && currentIndex !== lastTickIndex) {
+        tickSound.currentTime = 0;
+        tickSound.play();
+        lastTickIndex = currentIndex;
+      }
+
+      drawWheel();
+
+      if (t < 1) {
+        requestAnimationFrame(settle);
+      } else {
+        finishSpin();
+        spinning = false;
+      }
+    }
+
+    requestAnimationFrame(settle);
   }
 
   requestAnimationFrame(animate);
