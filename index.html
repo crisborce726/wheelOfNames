@@ -213,9 +213,11 @@ function spinWheel() {
   const sliceAngle = (2 * Math.PI) / entries.length;
   const startAngle = angle % (2 * Math.PI);
   const targetIndex = Math.floor(Math.random() * entries.length);
-  const duration = document.getElementById('spinTime').value * 1000;
 
-  const extraRotations = 6;
+  // Longer main spin for suspense
+  const spinDuration = 6500; // 6.5 seconds main spin
+
+  const extraRotations = 8; // more rotations for longer suspense
   const finalAngle =
     startAngle + extraRotations * 2 * Math.PI +
     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle);
@@ -229,11 +231,9 @@ function spinWheel() {
   function animate(ts) {
     if (!startTime) startTime = ts;
     const elapsed = ts - startTime;
-    const progress = Math.min(elapsed / duration, 1);
+    const progress = Math.min(elapsed / spinDuration, 1);
 
-    // Main spin with cubic ease-out
-    const eased = easeOutCubic(progress);
-    angle = startAngle + (finalAngle - startAngle) * eased;
+    angle = startAngle + (finalAngle - startAngle) * easeOutCubic(progress);
 
     // Tick sound per slice
     const normalizedAngle = angle % (2 * Math.PI);
@@ -251,27 +251,28 @@ function spinWheel() {
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      // Start slow settle/bounce
       startSettle(finalAngle);
     }
   }
 
-  // Subtle bounce/settle effect at the end
+  // Suspenseful settle parameters
+  const settleDuration = 2000; // 2 seconds
+  const amplitude = sliceAngle / 5; // gentle wobble
+  const oscillations = 4; // smooth back-and-forth
+
   function startSettle(baseAngle) {
-    const settleDuration = 800; // ms
     const settleStart = performance.now();
-    const amplitude = sliceAngle / 4; // max back-and-forth angle
 
     function settle(ts) {
       const elapsed = ts - settleStart;
       const t = Math.min(elapsed / settleDuration, 1);
 
-      // Damped oscillation: angle oscillates and gradually decreases
-      const damping = Math.pow(1 - t, 2); // decay over time
-      const oscillation = Math.sin(t * Math.PI * 3) * amplitude * damping; // 3 oscillations
+      // Damped oscillation for realistic settle
+      const damping = Math.pow(1 - t, 2);
+      const oscillation = Math.sin(t * Math.PI * oscillations) * amplitude * damping;
       angle = baseAngle + oscillation;
 
-      // Optional tick sound during settle (if crossing slices)
+      // Tick sound during settle
       const normalizedAngle = angle % (2 * Math.PI);
       const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
       const currentIndex = Math.floor(pointerAngle / sliceAngle);
@@ -296,6 +297,8 @@ function spinWheel() {
 
   requestAnimationFrame(animate);
 }
+
+
 
 
 
