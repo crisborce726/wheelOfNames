@@ -158,7 +158,7 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  let w=window.innerWidth<=991.98?Math.min(window.innerWidth*0.9,400):Math.min(window.innerWidth-(document.querySelector('.sidebar').offsetWidth+60),700);
+  let w=window.innerWidth<=991.98?Math.min(window.innerWidth*0.9,400):Math.min(window.innerWidth-(document.querySelector('.sidebar').offsetWidth+60),640);
   canvas.width=w; canvas.height=w; drawWheel();
   const pointer=document.getElementById('wheel-pointer');
   pointer.style.top=`${canvas.offsetTop - pointer.offsetHeight + 5}px`;
@@ -207,83 +207,37 @@ function drawWheel(){
 function spinWheel() {
   if (spinning || !entries.length) return;
   spinning = true;
-<<<<<<< HEAD
+  lastTickIndex = null;
   lockedCenterColor = null;
 
   const sliceAngle = (2 * Math.PI) / entries.length;
   const startAngle = angle % (2 * Math.PI);
   const targetIndex = Math.floor(Math.random() * entries.length);
-  const duration = document.getElementById('spinTime').value * 1000;
-  const extraRotations = Math.floor(Math.random() * 3 + 5);
 
-  const finalAngle = startAngle + extraRotations * 2 * Math.PI +
-                     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle - startAngle);
+  // Main spin parameters
+  const spinDuration = 6500; // 6.5 seconds main spin
+  const extraRotations = 8;
+  const finalAngle =
+    startAngle + extraRotations * 2 * Math.PI +
+    ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle);
 
   let startTime = null;
-  let lastTickAngle = angle;
 
-  // Cubic ease-out function for smooth deceleration
-  function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
+  // Cinematic easing: slow start → fast middle → slow finish
+  function easeInOutCubic(t) {
+    return t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
   function animate(ts) {
     if (!startTime) startTime = ts;
     const elapsed = ts - startTime;
-    const progress = Math.min(elapsed / duration, 1);
+    const progress = Math.min(elapsed / spinDuration, 1);
 
-    // Smooth deceleration
-    const eased = easeOutCubic(progress);
-    let baseAngle = startAngle + (finalAngle - startAngle) * eased;
+    angle = startAngle + (finalAngle - startAngle) * easeInOutCubic(progress);
 
-    // Optional wobble effect
-    const wobbleAmplitude = Math.PI / 180 * 1.5; // 1.5 degrees
-    const wobbleFrequency = 12;
-    const wobble = Math.sin(progress * Math.PI * wobbleFrequency) * wobbleAmplitude;
-    angle = baseAngle + wobble;
-
-    // Tick sound based on slice crossing
-    const crossedSlices = Math.floor(baseAngle / sliceAngle);
-    const lastCrossedSlices = Math.floor(lastTickAngle / sliceAngle);
-    if (soundEnabled() && crossedSlices !== lastCrossedSlices) {
-      tickSound.currentTime = 0;
-      tickSound.play();
-    }
-    lastTickAngle = baseAngle;
-=======
-  lastTickIndex = null;
-  lockedCenterColor = null;
-
-  const sliceAngle = (2 * Math.PI) / entries.length;
-  const startAngle = angle % (2 * Math.PI); // normalize current angle
-  const targetIndex = Math.floor(Math.random() * entries.length);
-  const duration = document.getElementById('spinTime').value * 1000;
-
-  // Ensure at least 5-7 extra rotations
-  const extraRotations = Math.floor(Math.random() * 3 + 5);
-  // Calculate final angle relative to startAngle
-  const finalAngle = startAngle + (extraRotations * 2 * Math.PI) + 
-                     ((3 * Math.PI / 2) - (targetIndex + 0.5) * sliceAngle - startAngle);
-
-  let startTime = null;
-
-  function animate(ts) {
-    if (!startTime) startTime = ts;
-    const elapsed = ts - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-
-    // Uniform speed with slight ease-out at last 15%
-    let eased;
-    if (progress < 0.85) {
-      eased = progress / 0.85; // nearly linear
-    } else {
-      const t = (progress - 0.85) / 0.15;
-      eased = 0.85 + (1 - Math.pow(1 - t, 3)) * 0.15; // cubic ease-out
-    }
-
-    angle = startAngle + (finalAngle - startAngle) * eased;
-
-    // Tick sound
+    // Tick sound per slice
     const normalizedAngle = angle % (2 * Math.PI);
     const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
     const currentIndex = Math.floor(pointerAngle / sliceAngle);
@@ -292,12 +246,54 @@ function spinWheel() {
       tickSound.play();
       lastTickIndex = currentIndex;
     }
->>>>>>> 889579e3538a2a748061dc6451c1faea4325a961
 
     drawWheel();
 
-    if (progress < 1) requestAnimationFrame(animate);
-    else { finishSpin(); spinning = false; }
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      startSettle(finalAngle);
+    }
+  }
+
+  // Dramatic settle parameters for suspense
+  const settleDuration = 2800; // longer settle: 2.8 seconds
+  const amplitude = sliceAngle / 6; // softer wobble
+  const oscillations = 3; // fewer, slower oscillations
+
+  function startSettle(baseAngle) {
+    const settleStart = performance.now();
+
+    function settle(ts) {
+      const elapsed = ts - settleStart;
+      const t = Math.min(elapsed / settleDuration, 1);
+
+      // Damped oscillation
+      const damping = Math.pow(1 - t, 2);
+      const oscillation = Math.sin(t * Math.PI * oscillations) * amplitude * damping;
+      angle = baseAngle + oscillation;
+
+      // Tick sound during settle
+      const normalizedAngle = angle % (2 * Math.PI);
+      const pointerAngle = (3 * Math.PI / 2 - normalizedAngle + 2 * Math.PI) % (2 * Math.PI);
+      const currentIndex = Math.floor(pointerAngle / sliceAngle);
+      if (soundEnabled() && currentIndex !== lastTickIndex) {
+        tickSound.currentTime = 0;
+        tickSound.play();
+        lastTickIndex = currentIndex;
+      }
+
+      drawWheel();
+
+      if (t < 1) {
+        requestAnimationFrame(settle);
+      } else {
+        finishSpin();
+        spinning = false;
+      }
+    }
+
+    requestAnimationFrame(settle);
   }
 
   requestAnimationFrame(animate);
