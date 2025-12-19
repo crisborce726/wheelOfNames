@@ -158,7 +158,7 @@ function sortEntries(){ loadEntries(); entries.sort((a,b)=>a.name.localeCompare(
 function showTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none'); document.getElementById(id).style.display='block'; document.querySelector(`.tab[onclick*="${id}"]`).classList.add('active');}
 
 function resizeCanvas(){ 
-  let w=window.innerWidth<=991.98?Math.min(window.innerWidth*0.9,400):Math.min(window.innerWidth-(document.querySelector('.sidebar').offsetWidth+60),700);
+  let w=window.innerWidth<=991.98?Math.min(window.innerWidth*0.9,400):Math.min(window.innerWidth-(document.querySelector('.sidebar').offsetWidth+60),640);
   canvas.width=w; canvas.height=w; drawWheel();
   const pointer=document.getElementById('wheel-pointer');
   pointer.style.top=`${canvas.offsetTop - pointer.offsetHeight + 5}px`;
